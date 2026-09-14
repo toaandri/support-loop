@@ -1,0 +1,652 @@
+SUPPORT-LOOP
+AI CUSTOMER SUPPORT AGENT
+==========================
+
+Projet d'etude / autodidacte pour GitHub
+
+Nom du repository
+-----------------
+support-loop
+
+Description courte GitHub
+-------------------------
+AI customer support agent with RAG, automated tool execution, human handoff, and a feedback-driven learning loop, powered by n8n.
+
+Description generale
+--------------------
+SupportLoop est un systeme de support client pilote par un agent IA et orchestre par n8n.
+
+L'objectif est de construire un systeme capable de :
+- recevoir des demandes clients ;
+- comprendre et classifier les demandes ;
+- rechercher les informations pertinentes dans une base de connaissances ;
+- interroger les donnees de l'entreprise ;
+- utiliser des outils/API pour effectuer certaines actions ;
+- repondre automatiquement lorsque la confiance est suffisante ;
+- transferer la conversation a un humain lorsque l'agent n'est pas suffisamment certain ;
+- recuperer la reponse/resolution humaine ;
+- transformer cette resolution en nouvelle connaissance ;
+- faire valider cette connaissance avant son activation ;
+- reutiliser cette connaissance dans des cas similaires futurs.
+
+IMPORTANT : le systeme ne doit pas re-entrainer automatiquement le modele LLM apres chaque intervention humaine. Le projet utilise plutot une boucle d'amelioration controlee basee sur la connaissance, le RAG, les corrections humaines et la validation.
+
+CONCEPT CENTRAL : LE LEARNING LOOP
+-----------------------------------
+IA
+  -> ne sait pas / confiance faible
+  -> humain
+  -> reponse humaine
+  -> extraction d'une connaissance ou d'une regle
+  -> validation humaine/admin
+  -> ajout a la Knowledge Base
+  -> utilisation par l'IA dans les futurs cas similaires
+
+Exemple :
+Client : "Je peux annuler ma commande alors qu'elle est deja expediee ?"
+
+L'agent estime :
+Confidence = 61%
+Threshold = 85%
+
+Le cas est transfere a un humain.
+
+L'humain repond :
+"Une commande deja expediee ne peut pas etre annulee. Le client doit attendre la livraison puis demander un retour sous 14 jours."
+
+Le systeme peut extraire une connaissance structuree :
+
+{
+  "intent": "cancel_shipped_order",
+  "condition": "order_status = shipped",
+  "resolution": "return_after_delivery",
+  "return_period": "14 days",
+  "approved": false
+}
+
+Workflow de connaissance :
+NEW -> REVIEW -> APPROVED -> ACTIVE
+
+Lorsqu'un autre client pose une question similaire, l'agent recherche cette connaissance et peut repondre automatiquement si son niveau de confiance est suffisant.
+
+ARCHITECTURE GENERALE
+---------------------
+
+                         CLIENT
+                            |
+              +-------------+-------------+
+              |             |             |
+            Web           Email        WhatsApp
+              |             |             |
+              +-------------+-------------+
+                            |
+                           n8n
+                            |
+                    AI Support Agent
+                            |
+             +--------------+--------------+
+             |              |              |
+       Knowledge Base   Customer DB     Tools/API
+             +--------------+--------------+
+                            |
+                    Analyse de la demande
+                            |
+                    Niveau de confiance
+                       /                         suffisamment       insuffisant
+                   sur               |
+                    |                |
+             Reponse auto         HUMAIN
+                                     |
+                              Reponse humaine
+                                     |
+                              Learning Pipeline
+                                     |
+                              Nouvelle connaissance
+                                     |
+                                  Validation
+                                     |
+                               Knowledge Base
+
+STACK TECHNIQUE
+---------------
+
+Frontend :
+- React
+- Dashboard d'administration
+- Interface de conversation
+- Gestion des conversations humaines
+- Page de validation des connaissances
+- Statistiques
+
+Backend :
+- Node.js
+- Express ou framework backend equivalent
+- API REST
+- Logique metier
+- Authentification/autorisation
+- Communication avec PostgreSQL et les services externes
+
+Automation / orchestration :
+- n8n
+- Webhooks
+- Workflows
+- Cron/Scheduled jobs
+- Conditions / branches
+- Appels API
+- Gestion des erreurs
+- Notifications
+
+Database :
+- PostgreSQL
+- Donnees clients
+- Conversations
+- Messages
+- Tickets
+- Commandes
+- Interventions humaines
+- Regles/connaissances
+- Scores de confiance
+- Feedback
+- Logs metier
+
+Vector search :
+- pgvector avec PostgreSQL
+- Embeddings
+- Recherche semantique
+- RAG
+
+IA :
+- LLM API
+- Classification
+- Extraction d'informations
+- Agent/tool calling
+- Generation de reponses
+- Analyse des reponses humaines
+- Extraction de connaissances
+- Evaluation de confiance
+
+Infrastructure :
+- Docker
+- Docker Compose
+- Variables d'environnement
+- .env.example
+
+Optionnel plus tard :
+- Redis pour cache/queue
+- Monitoring
+- Centralisation des logs
+
+RAG / KNOWLEDGE BASE
+
+Exemple de documents :
+
+knowledge/
+  delivery.pdf
+  refund-policy.pdf
+  warranty.pdf
+  faq.md
+  products/
+  procedures/
+
+Pipeline d'ingestion :
+
+Documents
+  -> extraction du texte
+  -> nettoyage
+  -> chunking
+  -> embeddings
+  -> PostgreSQL + pgvector
+
+Lors d'une demande :
+
+Question client
+  -> embedding
+  -> recherche vectorielle
+  -> documents/connaissances pertinents
+  -> agent IA
+  -> reponse
+
+L'agent doit privilegier les informations provenant de la Knowledge Base et eviter d'inventer des politiques ou procedures.
+
+AGENT IA ET TOOLS
+-----------------
+
+L'agent peut disposer de tools tels que :
+
+search_customer()
+get_customer_orders()
+get_order()
+get_order_status()
+search_product()
+check_stock()
+create_ticket()
+update_ticket()
+create_refund_request()
+send_email()
+notify_human()
+search_knowledge_base()
+
+Exemple :
+
+Client :
+"Ou est ma commande ?"
+
+Agent :
+  -> identifie le client
+  -> get_customer()
+  -> get_order()
+  -> get_tracking()
+  -> genere la reponse
+  -> repond au client
+
+L'agent ne doit pas avoir un acces illimite aux outils. Les actions sensibles doivent etre protegees par des regles, des permissions et/ou une validation humaine.
+
+HUMAN-IN-THE-LOOP
+-----------------
+
+Le systeme doit prevoir plusieurs raisons d'escalade :
+
+- confiance faible ;
+- information absente de la Knowledge Base ;
+- demande ambiguë ;
+- action sensible ;
+- remboursement important ;
+- suppression de compte ;
+- probleme juridique ;
+- client tres mecontent ;
+- erreur d'outil/API ;
+- demande hors perimetre.
+
+Exemples :
+
+Question simple -> IA
+Confiance faible -> Humain
+Petit remboursement -> eventuellement automatique selon politique
+Gros remboursement -> Humain
+Suppression de compte -> Humain
+Reclamation juridique -> Humain
+
+Lorsqu'une conversation est transferee, l'humain doit recevoir le contexte utile :
+- message du client ;
+- historique ;
+- informations client pertinentes ;
+- resultat des recherches ;
+- actions deja effectuees ;
+- raison de l'escalade ;
+- niveau de confiance.
+
+LEARNING PIPELINE
+-----------------
+
+Lorsqu'un humain intervient :
+
+Conversation
+  -> reponse humaine
+  -> analyse/extraction IA
+  -> proposition de nouvelle connaissance
+  -> validation admin
+  -> stockage
+  -> indexation vectorielle si necessaire
+  -> utilisation future
+
+Ne jamais considerer automatiquement toute reponse humaine comme une verite absolue.
+
+Exemple de pipeline :
+
+Human response
+  -> AI extracts rule
+  -> NEW
+  -> REVIEW
+  -> Admin APPROVES / REJECTS / EDITS
+  -> ACTIVE
+
+Le systeme peut aussi enregistrer les corrections de l'humain lorsque l'IA avait donne une mauvaise reponse.
+
+Exemple :
+
+Question :
+"Puis-je retourner ce produit ?"
+
+Reponse IA :
+"30 jours"
+
+Correction humaine :
+"14 jours"
+
+Le systeme conserve :
+- question ;
+- reponse IA ;
+- correction humaine ;
+- reponse finale validee ;
+- connaissance/regle associee.
+
+Ces donnees peuvent ensuite servir a :
+- ameliorer le RAG ;
+- ameliorer les prompts ;
+- construire un jeu d'evaluation ;
+- mesurer les erreurs ;
+- preparer eventuellement un futur fine-tuning.
+
+N8N : ROLE DANS LE PROJET
+-------------------------
+
+n8n ne doit pas etre toute l'application.
+
+n8n est le moteur d'orchestration.
+
+Workflows principaux possibles :
+
+1. incoming-message
+2. agent-router
+3. knowledge-search
+4. customer-data
+5. agent-tools
+6. confidence-check
+7. human-escalation
+8. human-learning
+9. knowledge-review
+10. knowledge-ingestion
+11. notifications
+12. analytics
+13. error-handling
+
+Exemple :
+
+Webhook
+  -> identify customer
+  -> classify request
+  -> search knowledge
+  -> call AI agent
+  -> confidence check
+      -> auto response
+      -> OR human escalation
+
+EXEMPLE DE DASHBOARD
+--------------------
+
+AI CUSTOMER SUPPORT
+
+Conversations today : 247
+Automatically resolved : 189
+Human escalations : 32
+Pending : 26
+
+Resolution rate : 76.5%
+Average response time : 18 sec
+
+Page Learning :
+
+Human interventions : 127
+Potential new knowledge : 18
+
+Pending review :
+- cancel shipped order
+- change delivery address
+- warranty after repair
+
+Actions :
+- Approve
+- Reject
+- Edit
+
+METRIQUES A SUIVRE
+------------------
+
+- nombre de conversations ;
+- taux de resolution automatique ;
+- taux d'escalade ;
+- temps moyen de reponse ;
+- temps moyen avant intervention humaine ;
+- taux de reponses corrigees ;
+- taux d'erreur ;
+- satisfaction client ;
+- connaissances creees ;
+- connaissances approuvees ;
+- nombre de fois qu'une connaissance a permis une resolution automatique ;
+- taux de resolution par intention ;
+- performance avant/apres ajout de connaissances.
+
+Une experience interessante consiste a mesurer l'evolution du systeme :
+V1 sans learning loop -> benchmark
+Puis ajouter progressivement des connaissances issues des interventions humaines
+-> refaire le benchmark
+-> comparer les performances.
+
+SECURITE ET GARDE-FOUS
+----------------------
+
+Le projet doit considerer l'IA comme non infaillible.
+
+Principes :
+- ne pas inventer une politique inexistante ;
+- ne pas executer des actions sensibles sans autorisation ;
+- appliquer des seuils de confiance avec prudence ;
+- journaliser les actions de l'agent ;
+- limiter les permissions des tools ;
+- proteger les secrets/API keys ;
+- ne pas exposer les donnees inutiles au LLM ;
+- verifier les permissions utilisateur ;
+- conserver une trace des validations humaines ;
+- prevoir retry/timeouts pour les APIs ;
+- gerer les erreurs n8n et les erreurs LLM.
+
+STRUCTURE POSSIBLE DU REPOSITORY
+--------------------------------
+
+support-loop/
+|
+|-- n8n/
+|   |-- workflows/
+|   |   |-- incoming-message.json
+|   |   |-- customer-agent.json
+|   |   |-- knowledge-search.json
+|   |   |-- escalation.json
+|   |   |-- human-learning.json
+|   |   |-- knowledge-review.json
+|   |   |-- notifications.json
+|   |   `-- analytics.json
+|   `-- README.md
+|
+|-- backend/
+|   |-- controllers/
+|   |-- services/
+|   |-- routes/
+|   |-- models/
+|   `-- middleware/
+|
+|-- frontend/
+|
+|-- database/
+|   |-- schema.sql
+|   `-- seed.sql
+|
+|-- knowledge/
+|
+|-- docker/
+|
+|-- docs/
+|   |-- architecture.md
+|   |-- workflows.md
+|   |-- rag.md
+|   |-- learning-loop.md
+|   `-- security.md
+|
+|-- .env.example
+|-- docker-compose.yml
+|-- README.md
+`-- LICENSE
+
+VERSIONNEMENT DU PROJET
+-----------------------
+
+V1 - BASIC AGENT
+----------------
+Objectif : avoir un premier agent fonctionnel.
+
+- interface de chat ;
+- appel LLM ;
+- generation de reponses ;
+- historique basique ;
+- premier workflow n8n.
+
+V2 - KNOWLEDGE BASE / RAG
+-------------------------
+Objectif : faire repondre l'agent a partir de documents.
+
+- ingestion de documents ;
+- extraction de texte ;
+- chunking ;
+- embeddings ;
+- PostgreSQL ;
+- pgvector ;
+- recherche semantique ;
+- RAG.
+
+V3 - CUSTOMER DATA
+------------------
+Objectif : connecter l'agent aux donnees de l'entreprise.
+
+- clients ;
+- commandes ;
+- produits ;
+- tickets ;
+- historique ;
+- PostgreSQL ;
+- API backend.
+
+V4 - TOOLS / ACTIONS
+--------------------
+Objectif : permettre a l'agent d'agir.
+
+- tool calling ;
+- recherche client ;
+- recherche commande ;
+- suivi commande ;
+- stock ;
+- creation de ticket ;
+- email ;
+- autres APIs.
+
+V5 - HUMAN HANDOFF
+------------------
+Objectif : faire intervenir un humain quand l'IA n'est pas assez sure.
+
+- score de confiance ;
+- seuil configurable ;
+- escalation ;
+- interface agent humain ;
+- transfert avec contexte ;
+- statut des conversations ;
+- reprise de conversation.
+
+V6 - LEARNING LOOP
+------------------
+Objectif : permettre au systeme de progresser grace aux interventions humaines.
+
+- enregistrement des reponses humaines ;
+- extraction de connaissances ;
+- propositions de nouvelles regles ;
+- statut NEW/REVIEW/APPROVED/ACTIVE ;
+- validation admin ;
+- indexation dans la Knowledge Base ;
+- reutilisation dans les futurs cas similaires ;
+- suivi des corrections IA -> humain.
+
+V7 - DASHBOARD
+--------------
+Objectif : administrer et mesurer le systeme.
+
+- dashboard ;
+- conversations ;
+- tickets ;
+- escalations ;
+- knowledge management ;
+- statistiques ;
+- taux de resolution ;
+- performances ;
+- page de validation des connaissances ;
+- logs utiles.
+
+V8 - PRODUCTION / HARDENING
+---------------------------
+Objectif : rendre le projet robuste.
+
+- Docker Compose ;
+- gestion des secrets ;
+- authentification ;
+- autorisations ;
+- rate limiting ;
+- retry ;
+- timeout ;
+- gestion des erreurs ;
+- monitoring ;
+- logs structures ;
+- tests ;
+- evaluation automatique de l'agent ;
+- tests de regression ;
+- backup database ;
+- documentation complete.
+
+V9 - MULTI-CHANNEL (OPTIONNEL)
+------------------------------
+Ajouter progressivement :
+- Web chat ;
+- Email ;
+- WhatsApp ou autre canal compatible ;
+- notifications ;
+- unified conversation history.
+
+V10 - ADVANCED AGENT EVALUATION (OPTIONNEL)
+--------------------------------------------
+Construire un vrai benchmark interne.
+
+- dataset de questions ;
+- reponses attendues ;
+- test du RAG ;
+- test des tools ;
+- test des escalations ;
+- mesure de precision ;
+- mesure des hallucinations ;
+- mesure du taux de resolution ;
+- comparaison entre versions.
+
+OBJECTIF FINAL
+--------------
+
+Construire un systeme personnel d'apprentissage demontrant une architecture complete de support client IA :
+
+LLM
++ RAG
++ vector search
++ PostgreSQL
++ tool calling
++ n8n orchestration
++ human-in-the-loop
++ learning loop
++ React dashboard
++ Node.js backend
++ Docker
++ monitoring
++ evaluation
+
+Le projet doit rester evolutif : chaque version doit apporter une nouvelle capacite mesurable.
+
+PHILOSOPHIE DU PROJET
+---------------------
+
+Ce projet est realise dans un objectif d'apprentissage autodidacte.
+
+Il est inspire des architectures modernes d'agents IA de support client, mais l'objectif est de concevoir et implementer sa propre architecture afin de comprendre :
+- les agents IA ;
+- le RAG ;
+- les embeddings ;
+- le tool calling ;
+- l'orchestration avec n8n ;
+- le human-in-the-loop ;
+- la gestion de confiance ;
+- la gestion des connaissances ;
+- les boucles d'amelioration ;
+- la securite ;
+- l'evaluation des agents IA.
+
+FIN
