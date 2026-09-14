@@ -1,0 +1,51 @@
+{
+  "name": "SupportLoop V1 Incoming Message",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "support-loop/incoming-message",
+        "responseMode": "responseNode"
+      },
+      "id": "incoming-webhook",
+      "name": "Incoming Message Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPPORT_LOOP_BACKEND_URL || 'http://backend:3000'}}/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"conversationId\": $json.body.conversationId || \"n8n-demo\",\n  \"message\": $json.body.message,\n  \"channel\": $json.body.channel || \"n8n\"\n}"
+      },
+      "id": "call-backend-chat",
+      "name": "Call SupportLoop Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}"
+      },
+      "id": "webhook-response",
+      "name": "Return Agent Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [780, 300]
+    }
+  ],
+  "connections": {
+    "Incoming Message Webhook": {
+      "main": [[{ "node": "Call SupportLoop Backend", "type": "main", "index": 0 }]]
+    },
+    "Call SupportLoop Backend": {
+      "main": [[{ "node": "Return Agent Response", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}

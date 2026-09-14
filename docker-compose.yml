@@ -1,0 +1,36 @@
+services:
+  backend:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    environment:
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    environment:
+      VITE_API_BASE_URL: http://localhost:3000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+    depends_on:
+      - backend
+
+  n8n:
+    image: n8nio/n8n:latest
+    environment:
+      SUPPORT_LOOP_BACKEND_URL: http://backend:3000
+      N8N_SECURE_COOKIE: false
+    ports:
+      - "5678:5678"
+    volumes:
+      - ./n8n/workflows:/workflows
+    depends_on:
+      - backend

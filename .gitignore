@@ -1,0 +1,29 @@
+# Dependencies
+**/node_modules/
+
+# Build output and tooling caches
+**/dist/
+**/.vite/
+coverage/
+*.log
+npm-debug.log*
+
+# Local environment files (keep templates versioned)
+.env
+.env.*
+!.env.example
+
+# Editor and operating system files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local agent planning and personal notes
+.superpowers/
+docs/superpowers/
+choses a faire.txt
+
+# Reserved for future versions; do not version empty placeholders
+database/
+knowledge/

@@ -1,0 +1,182 @@
+:root {
+  color: #17202a;
+  background: #f4f0e8;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.app-shell {
+  display: grid;
+  gap: 32px;
+  grid-template-columns: minmax(260px, 0.85fr) minmax(320px, 1.15fr);
+  min-height: 100vh;
+  padding: 48px;
+}
+
+.hero {
+  align-self: center;
+}
+
+.eyebrow {
+  color: #8c4b2f;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+h1 {
+  font-size: clamp(2.5rem, 7vw, 5.8rem);
+  line-height: 0.92;
+  margin: 0 0 24px;
+}
+
+.hero p:last-child {
+  color: #5d665f;
+  font-size: 1.1rem;
+  max-width: 520px;
+}
+
+.chat-panel {
+  align-self: center;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(23, 32, 42, 0.1);
+  border-radius: 28px;
+  box-shadow: 0 24px 80px rgba(35, 25, 18, 0.14);
+  display: flex;
+  flex-direction: column;
+  min-height: 620px;
+  overflow: hidden;
+}
+
+.messages {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.empty-state {
+  border: 1px dashed rgba(23, 32, 42, 0.2);
+  border-radius: 18px;
+  color: #6d716b;
+  margin: auto;
+  padding: 28px;
+  text-align: center;
+}
+
+.message {
+  border-radius: 18px;
+  max-width: 82%;
+  padding: 14px 16px;
+}
+
+.message span {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.message p {
+  margin: 0;
+}
+
+.message small {
+  color: #626b63;
+  display: block;
+  margin-top: 8px;
+}
+
+.message.user {
+  align-self: flex-end;
+  background: #17202a;
+  color: #fff;
+}
+
+.message.assistant {
+  align-self: flex-start;
+  background: #efe6d8;
+}
+
+.status,
+.error {
+  margin: 0;
+  padding: 0 24px 16px;
+}
+
+.status {
+  color: #5d665f;
+}
+
+.error {
+  color: #9d2f21;
+}
+
+.composer {
+  border-top: 1px solid rgba(23, 32, 42, 0.1);
+  display: flex;
+  gap: 12px;
+  padding: 18px;
+}
+
+.composer input {
+  border: 1px solid rgba(23, 32, 42, 0.16);
+  border-radius: 999px;
+  flex: 1;
+  font: inherit;
+  padding: 14px 18px;
+}
+
+.composer button {
+  background: #c45f3c;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  padding: 14px 22px;
+}
+
+.composer button:disabled,
+.composer input:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@media (max-width: 860px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+    padding: 24px;
+  }
+
+  .chat-panel {
+    min-height: 560px;
+  }
+}
+
+@media (max-width: 520px) {
+  .app-shell {
+    padding: 16px;
+  }
+
+  .composer {
+    flex-direction: column;
+  }
+
+  .composer button {
+    width: 100%;
+  }
+}
