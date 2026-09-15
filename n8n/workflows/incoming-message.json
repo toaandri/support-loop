@@ -1,5 +1,5 @@
 {
-  "name": "SupportLoop V1 Incoming Message",
+  "name": "SupportLoop V5 Incoming Message",
   "nodes": [
     {
       "parameters": {
@@ -17,6 +17,8 @@
       "parameters": {
         "method": "POST",
         "url": "={{$env.SUPPORT_LOOP_BACKEND_URL || 'http://backend:3000'}}/api/chat",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "x-customer-key", "value": "={{$env.CUSTOMER_API_KEY || ''}}" }] },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"conversationId\": $json.body.conversationId || \"n8n-demo\",\n  \"message\": $json.body.message,\n  \"channel\": $json.body.channel || \"n8n\"\n}"

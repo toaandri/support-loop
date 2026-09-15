@@ -25,5 +25,4 @@ docs/superpowers/
 choses a faire.txt
 
 # Reserved for future versions; do not version empty placeholders
-database/
-knowledge/
+knowledge/local/
