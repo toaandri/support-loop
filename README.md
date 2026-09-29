@@ -1,24 +1,31 @@
 # SupportLoop
 
-Prototype d'agent de support client avec RAG, outils metier et transfert a un
-conseiller humain. React fournit les espaces client et conseiller ; Express
-execute l'agent et les regles de transfert ; n8n orchestre les messages entrants.
-Les donnees et politiques fournies concernent une boutique fictive.
+Agent de support client avec RAG, tool calling, transfert humain et boucle
+d'apprentissage continu. React fournit les espaces client et conseiller ;
+Express exécute l'agent et les règles de transfert ; n8n orchestre les messages
+entrants. Les données et politiques fournies concernent une boutique fictive.
 
-## Versions implementees
+## Versions implémentées
 
-- V1 : chat React, API Express, agent mock et premier workflow n8n.
-- V2 : ingestion Markdown/texte UTF-8, nettoyage, chunking avec recouvrement,
+- **V1** — chat React, API Express, agent mock, premier workflow n8n.
+- **V2** — ingestion Markdown/texte UTF-8, nettoyage, chunking avec recouvrement,
   embeddings OpenAI, PostgreSQL/pgvector, recherche cosinus et extraits sources.
-- V3 : clients, commandes, produits, stock, tickets et historique persistant.
-- V4 : function calling avec liste d'outils autorises, controle des arguments,
-  acces aux commandes du seul client configure et journal des appels.
-- V5 : score estime, seuil configurable, transfert avec contexte, file des
-  conversations, prise en charge humaine, reponses, resolution et reprise IA.
+- **V3** — clients, commandes, produits, stock, tickets et historique persistant.
+- **V4** — function calling avec liste d'outils autorisés, contrôle des arguments,
+  accès aux commandes du seul client configuré et journal des appels.
+- **V5** — score estimé, seuil configurable, transfert avec contexte, file des
+  conversations, prise en charge humaine, réponses, résolution et reprise IA.
+- **V6** — learning loop : extraction automatique de connaissance après chaque
+  résolution humaine, workflow de validation NEW → REVIEW → APPROVED → ACTIVE,
+  indexation vectorielle à l'approbation, interface admin Connaissances.
+- **V7** — dashboard : KPIs en temps réel (conversations, taux de résolution,
+  taux d'escalade, tickets, connaissances apprises), rafraîchissement auto.
+- **V8** — hardening : rate limiting, retry exponentiel OpenAI, logs structurés
+  JSON, timeout 30 s, graceful shutdown, Docker Compose complet.
 
-## Essayer sans cle API
+## Essayer sans clé API
 
-Prerequis : Node.js 20.6 ou plus recent et npm.
+Prérequis : Node.js 20.6 ou plus récent et npm.
 
 Dans `backend/` :
 
@@ -35,25 +42,29 @@ npm run dev
 ```
 
 Frontend : `http://localhost:5173`. API : `http://localhost:3000/api/health`.
-Par defaut, le mode demo utilise des donnees en memoire et des reponses
-deterministes. La recherche documentaire de demo utilise des regles locales ;
-la recherche semantique et le LLM sont disponibles en mode `rag`.
+Par défaut, le mode démo utilise des données en mémoire et des réponses
+déterministes. La recherche documentaire de démo utilise des règles locales ;
+la recherche sémantique et le LLM sont disponibles en mode `rag`.
 
-Parcours :
+Parcours client :
 
-1. Dans **Conversation**, demander `Ou est ma commande ORD-1001 ?`.
-2. Demander `Je veux parler a un humain`.
-3. Dans **Conseiller**, choisir la conversation et **Prendre en charge**.
-4. Repondre ; le client voit la reponse lors de l'actualisation automatique.
-5. **Resoudre** termine le dossier. **Reprendre avec l'IA** rend la main a l'agent.
+1. Dans **Conversation**, demander `Où est ma commande ORD-1001 ?`.
+2. Demander `Je veux parler à un humain`.
+3. Dans **Conseiller**, onglet **Conversations**, choisir la conversation et
+   **Prendre en charge**.
+4. Répondre ; le client voit la réponse lors de l'actualisation automatique.
+5. **Résoudre** termine le dossier et déclenche l'extraction de connaissance.
+6. Onglet **Connaissances** : approuver ou rejeter la connaissance extraite.
+7. Onglet **Tableau de bord** : consulter les KPIs.
 
-Le client peut continuer a envoyer des precisions pendant le transfert.
-L'agent ne repond pas tant que le statut est `waiting` ou `human`.
-Le **Catalogue** affiche les produits et leur disponibilite fictive.
+**Reprendre avec l'IA** rend la main à l'agent sans résoudre le ticket.
+Le client peut continuer à envoyer des précisions pendant le transfert.
+L'agent ne répond pas tant que le statut est `waiting` ou `human`.
+Le **Catalogue** affiche les produits et leur disponibilité fictive.
 
 ## PostgreSQL et RAG
 
-Creer `.env` a la racine a partir de `.env.example`. Pour le RAG :
+Créer `.env` à la racine à partir de `.env.example`. Pour le RAG :
 
 ```dotenv
 AGENT_MODE=rag
@@ -63,7 +74,7 @@ OPENAI_API_KEY=your-key
 DATABASE_URL=postgresql://supportloop:supportloop@localhost:55432/supportloop
 ```
 
-Demarrer PostgreSQL depuis la racine :
+Démarrer PostgreSQL depuis la racine :
 
 ```bash
 docker compose up -d postgres
@@ -77,26 +88,20 @@ npm run knowledge:ingest
 node --env-file=../.env src/server.js
 ```
 
-`db:init` applique les schemas et les donnees fictives sans les ecraser.
+`db:init` applique les schémas et les données fictives sans les écraser.
 `knowledge:ingest` indexe `knowledge/demo/`. Pour vos propres fichiers :
 `npm run knowledge:ingest -- ../knowledge/local`.
-L'ingestion et les reponses RAG effectuent des appels OpenAI payants.
-La cle OpenAI reste exclusivement dans le backend.
+L'ingestion et les réponses RAG effectuent des appels OpenAI payants.
+La clé OpenAI reste exclusivement dans le backend.
 
-Les fichiers inchanges sont ignores. Les fichiers modifies remplacent leurs
-chunks dans une transaction. Reutiliser le meme repertoire racine : les noms
-de sources sont relatifs a ce repertoire. Supprimer un fichier du disque ne
-supprime pas sa version indexee. PDF, OCR et administration des documents
-dans le navigateur restent a ajouter.
+Les fichiers inchangés sont ignorés. Les fichiers modifiés remplacent leurs
+chunks dans une transaction. Réutiliser le même répertoire racine : les noms
+de sources sont relatifs à ce répertoire. Supprimer un fichier du disque ne
+supprime pas sa version indexée.
 
-Les vecteurs ont 1536 dimensions. Un changement de modele exige une nouvelle
-ingestion ; la recherche filtre les modeles pour eviter de melanger les vecteurs.
-`RAG_MIN_SIMILARITY` filtre la recherche (0.35 par defaut). La similarite et le
-score estime par l'agent ne sont pas des probabilites verifiees de justesse.
-Le seuil de transfert est modifiable dans l'espace Conseiller et persiste en base.
-
-Pour conserver les donnees sans appeler OpenAI, utiliser `AGENT_MODE=demo`
-avec `STORAGE_MODE=postgres`.
+Les vecteurs ont 1536 dimensions. Un changement de modèle exige une nouvelle
+ingestion ; la recherche filtre les modèles pour éviter de mélanger les vecteurs.
+`RAG_MIN_SIMILARITY` filtre la recherche (0.35 par défaut).
 
 ## Docker Compose
 
@@ -107,72 +112,98 @@ docker compose up -d
 docker compose exec backend node scripts/ingestKnowledge.js /knowledge/demo
 ```
 
-PostgreSQL est expose uniquement sur localhost, port `POSTGRES_PORT` (55432 par
-defaut). Les autres services : frontend 5173, backend 3000, n8n 5678.
-Les trois scripts SQL s'executent automatiquement sur un volume neuf.
-Sur un volume existant, appliquer le schema avant de lancer le backend RAG :
+PostgreSQL est exposé uniquement sur localhost, port `POSTGRES_PORT` (55432 par
+défaut). Les autres services : frontend 5173, backend 3000, n8n 5678.
+Les trois scripts SQL s'exécutent automatiquement sur un volume neuf.
+Sur un volume existant, appliquer le schéma avant de lancer le backend RAG :
 
 ```bash
 docker compose run --rm backend node scripts/initDatabase.js
 ```
 
+## Learning Loop (V6)
+
+Quand un conseiller résout une conversation, le backend extrait automatiquement
+une connaissance structurée via OpenAI. Elle apparaît dans l'onglet
+**Connaissances** avec le statut `new`.
+
+Workflow de validation :
+
+```
+NEW → REVIEW → APPROVED → ACTIVE
+              ↘ REJECTED
+```
+
+L'admin peut **Approuver** (indexation vectorielle automatique → statut `active`),
+**Rejeter**, ou **Éditer** la réponse et la règle JSON avant approbation.
+Une connaissance `active` est interrogée par l'agent RAG comme n'importe quel
+document de la Knowledge Base.
+
+En mode `demo` ou sans `knowledgeStore`, l'approbation reste au statut
+`approved` (pas d'indexation réelle).
+
 ## Outils et transfert
 
 Outils disponibles : `get_customer_orders`, `get_order`, `search_product`,
 `check_stock`, `create_ticket`, `search_knowledge_base`.
-L'agent dispose de 8 appels d'outils et 5 tours de modele au maximum par message.
-La creation de ticket exige une demande de ticket ou un incident dans le message
-client et ne cree qu'un ticket par conversation.
+L'agent dispose de 8 appels d'outils et 5 tours de modèle au maximum par message.
+La création de ticket exige une demande de ticket ou un incident dans le message
+client et ne crée qu'un ticket par conversation.
 
 Les remboursements, annulations, changements d'adresse, suppressions de compte,
-demandes juridiques et demandes explicites de conseiller passent d'abord a un
+demandes juridiques et demandes explicites de conseiller passent d'abord à un
 humain. Un manque de connaissance, un score faible ou une erreur de service
-declenchent aussi un transfert. Aucune action sensible n'est executee par l'IA.
-L'envoi d'emails et les integrations de transport ne sont pas encore implementes.
+déclenchent aussi un transfert. Aucune action sensible n'est exécutée par l'IA.
 
-## API et acces
+## API et accès
 
-En demo, les espaces sont ouverts sur la machine locale. Pour proteger l'acces,
-mettre `DEMO_MODE=false` et configurer deux cles distinctes :
+En démo, les espaces sont ouverts sur la machine locale. Pour protéger l'accès,
+mettre `DEMO_MODE=false` et configurer deux clés distinctes :
 `CUSTOMER_API_KEY` et `SUPPORT_ADMIN_KEY`. Le frontend dispose d'un champ
-d'acces client et d'une connexion conseiller. Ne pas exposer la demo sur Internet.
-Ce sont des cles de prototype : authentification multi-utilisateur et roles
-complets font partie du durcissement futur.
+d'accès client et d'une connexion conseiller.
 
-Le client est fixe par `SUPPORT_CUSTOMER_ID` cote serveur ; ni la requete ni
-le modele ne peuvent le changer. Le conseiller est fixe par `SUPPORT_AGENT_NAME`.
+Le client est fixé par `SUPPORT_CUSTOMER_ID` côté serveur ; ni la requête ni
+le modèle ne peuvent le changer. Le conseiller est fixé par `SUPPORT_AGENT_NAME`.
 
-- `POST /api/chat` : `{ conversationId, message, channel }`.
-- `GET /api/conversations/:id/messages` : messages et statut, limites au client.
-- `GET /api/customer`, `/api/orders`, `/api/orders/:id`, `/api/products?q=...`, `/api/tickets`.
-- `GET /api/support/conversations` : file des conversations.
-- `GET /api/support/conversations/:id` : historique, client, commandes, sources et outils.
-- `POST /api/support/conversations/:id/claim|reply|resolve|resume` ; `reply` attend `{ content }`.
-- `GET/PATCH /api/support/settings` ; PATCH attend `{ threshold: 0.85 }`.
+**Routes client** (`x-customer-key`) :
 
-Les routes client utilisent `x-customer-key`, les routes conseiller
-`x-support-key`. La prise en charge est exclusive et les tours simultanes sont
-serialises. PostgreSQL conserve les messages, statuts, tickets et traces dans
-une transaction ; le mode memoire perd ces donnees au redemarrage.
+- `POST /api/chat` — `{ conversationId, message, channel }`
+- `GET /api/conversations/:id/messages` — messages et statut
+- `GET /api/customer`, `/api/orders`, `/api/orders/:id`, `/api/products?q=`, `/api/tickets`
+
+**Routes conseiller** (`x-support-key`) :
+
+- `GET /api/support/conversations` — file des conversations
+- `GET /api/support/conversations/:id` — historique, client, commandes, traces
+- `POST /api/support/conversations/:id/claim|reply|resolve|resume`
+- `GET /api/support/settings` — seuil de confiance et nom de l'agent
+- `PATCH /api/support/settings` — `{ threshold: 0.85 }`
+- `GET /api/support/stats` — KPIs agrégés
+- `GET /api/support/knowledge` — liste des connaissances apprises (`?status=new|review|approved|rejected|active`)
+- `GET /api/support/knowledge/:id` — détail d'une entrée
+- `POST /api/support/knowledge/:id/approve` — approuver et indexer
+- `POST /api/support/knowledge/:id/reject` — rejeter
+- `PATCH /api/support/knowledge/:id` — éditer `human_answer` et/ou `extracted_rule`
 
 ## n8n
 
-Importer `n8n/workflows/incoming-message.json`. Le webhook attend
-`{ conversationId, message, channel }`, appelle l'API avec `CUSTOMER_API_KEY`
-et renvoie sa reponse, y compris le statut de transfert.
-Les decisions et mutations restent dans le backend.
-En statut humain, consulter l'historique pour recevoir les reponses du conseiller.
-Le workflow est importable ; son execution dans n8n n'est pas testee automatiquement.
+Importer les workflows de `n8n/workflows/` dans n8n.
+Le workflow `incoming-message.json` est le point d'entrée principal.
+Les workflows spécialisés (`human-escalation`, `knowledge-review`,
+`knowledge-ingestion`, `notifications`, `analytics`, `error-handling`)
+sont importables indépendamment selon les besoins.
 
-## Verification
+Voir `n8n/README.md` pour les détails de configuration.
+
+## Vérification
 
 Dans `backend/` : `npm test`. Dans `frontend/` : `npm run build`.
-Les tests PostgreSQL sont actives quand `TEST_DATABASE_URL` est configure.
-Utiliser une base de test contenant uniquement des donnees fictives ; les tests
-appliquent les schemas et seed, puis nettoient leurs propres conversations.
-Les appels OpenAI sont simules dans les tests ; un essai live necessite votre cle.
+Les tests PostgreSQL sont activés quand `TEST_DATABASE_URL` est configuré.
+Utiliser une base de test contenant uniquement des données fictives ; les tests
+appliquent les schémas et le seed, puis nettoient leurs propres conversations.
+Les appels OpenAI sont simulés dans les tests.
 
-References : [OpenAI embeddings](https://developers.openai.com/api/reference/resources/embeddings/methods/create),
-[OpenAI Responses](https://developers.openai.com/api/docs/guides/text),
-[OpenAI function calling](https://developers.openai.com/api/docs/guides/function-calling),
+Références : [OpenAI embeddings](https://platform.openai.com/docs/api-reference/embeddings),
+[OpenAI Responses](https://platform.openai.com/docs/api-reference/responses),
+[OpenAI function calling](https://platform.openai.com/docs/guides/function-calling),
 [pgvector](https://github.com/pgvector/pgvector).

@@ -1,0 +1,88 @@
+{
+  "name": "SupportLoop — Human Escalation Notifier",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "support-loop/escalation",
+        "responseMode": "responseNode"
+      },
+      "id": "escalation-webhook",
+      "name": "Escalation Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false },
+          "conditions": [
+            {
+              "id": "check-status",
+              "leftValue": "={{ $json.body.status }}",
+              "rightValue": "waiting",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "check-escalation",
+      "name": "Is Escalation?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.SUPPORT_LOOP_BACKEND_URL || 'http://backend:3000'}}/api/support/conversations/={{ $json.body.conversationId }}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "x-support-key", "value": "={{ $env.SUPPORT_ADMIN_KEY || '' }}" }] }
+      },
+      "id": "fetch-conversation",
+      "name": "Fetch Conversation Context",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [780, 220]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"skipped\":true,\"reason\":\"not an escalation\"}"
+      },
+      "id": "skip-response",
+      "name": "Skip — Not an Escalation",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [780, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { notified: true, conversationId: $('Fetch Conversation Context').item.json.id, escalationReason: $('Fetch Conversation Context').item.json.escalation?.reason } }}"
+      },
+      "id": "notify-response",
+      "name": "Notify Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1060, 220]
+    }
+  ],
+  "connections": {
+    "Escalation Webhook": {
+      "main": [[{ "node": "Is Escalation?", "type": "main", "index": 0 }]]
+    },
+    "Is Escalation?": {
+      "main": [
+        [{ "node": "Fetch Conversation Context", "type": "main", "index": 0 }],
+        [{ "node": "Skip — Not an Escalation", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Conversation Context": {
+      "main": [[{ "node": "Notify Response", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "notes": "Reçoit un événement d'escalade depuis le backend (status=waiting), récupère le contexte complet de la conversation et peut déclencher une notification (email, Slack, webhook) vers l'équipe de support. Étendre ce workflow avec un nœud Email/Slack/HTTP pour l'intégration souhaitée."
+}

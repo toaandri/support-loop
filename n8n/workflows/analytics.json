@@ -1,0 +1,61 @@
+{
+  "name": "SupportLoop — Analytics Snapshot",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "triggerAtHour": 8, "field": "hours" }] }
+      },
+      "id": "daily-analytics-cron",
+      "name": "Daily at 8h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.SUPPORT_LOOP_BACKEND_URL || 'http://backend:3000'}}/api/support/stats",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "x-support-key", "value": "={{ $env.SUPPORT_ADMIN_KEY || '' }}" }] }
+      },
+      "id": "fetch-stats",
+      "name": "Fetch Stats",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s = $input.item.json;\nconst total = Number(s.conversations_total) || 0;\nconst resolved = Number(s.conversations_resolved) || 0;\nconst waiting = Number(s.conversations_waiting) || 0;\nconst human = Number(s.conversations_human) || 0;\nconst resolutionRate = total > 0 ? Math.round((resolved / total) * 100) : 0;\nconst escalationRate = total > 0 ? Math.round(((waiting + human) / total) * 100) : 0;\nconst lkTotal = Number(s.learned_knowledge_total) || 0;\nconst lkActive = Number(s.learned_knowledge_active) || 0;\nreturn [{\n  json: {\n    date: new Date().toISOString().slice(0, 10),\n    conversations_total: total,\n    conversations_resolved: resolved,\n    escalation_rate_pct: escalationRate,\n    resolution_rate_pct: resolutionRate,\n    tickets_open: Number(s.tickets_open) || 0,\n    learned_knowledge_total: lkTotal,\n    learned_knowledge_active: lkActive,\n    summary: `SupportLoop ${new Date().toISOString().slice(0,10)}: ${total} convs, ${resolutionRate}% résolution, ${escalationRate}% escalade, ${lkActive}/${lkTotal} connaissances actives.`\n  }\n}];"
+      },
+      "id": "compute-metrics",
+      "name": "Compute Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// TODO: stocker le snapshot dans une table analytics ou l'envoyer par email/webhook\n// $input.item.json contient le rapport calculé\nreturn $input.all();"
+      },
+      "id": "store-snapshot",
+      "name": "Store or Send Snapshot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 300]
+    }
+  ],
+  "connections": {
+    "Daily at 8h": {
+      "main": [[{ "node": "Fetch Stats", "type": "main", "index": 0 }]]
+    },
+    "Fetch Stats": {
+      "main": [[{ "node": "Compute Metrics", "type": "main", "index": 0 }]]
+    },
+    "Compute Metrics": {
+      "main": [[{ "node": "Store or Send Snapshot", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "notes": "Génère chaque matin un snapshot analytique en appelant GET /api/support/stats. Calcule taux de résolution, taux d'escalade et état des connaissances. Connecter 'Store or Send Snapshot' à une base de données, un spreadsheet Google ou un nœud Email pour archivage et reporting."
+}

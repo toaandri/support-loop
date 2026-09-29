@@ -57,7 +57,7 @@ export default function SupportApp() {
   }
 
   return <main className="app-shell">
-    <header className="app-header"><div className="brand"><MessagesSquare size={27} /><h1>SupportLoop</h1><span className="version">V5</span></div>
+    <header className="app-header"><div className="brand"><MessagesSquare size={27} /><h1>SupportLoop</h1><span className="version">V8</span></div>
       <div className="header-right">{health?.demoMode ? <span className="badge demo">Boutique fictive · Demo</span> : null}
         <button className="icon-button secondary" title="Acces client" aria-label="Acces client" onClick={() => setShowAccess(!showAccess)}><KeyRound size={18} /></button></div></header>
     {showAccess ? <label className="customer-access">Cle d'acces client<input type="password" autoComplete="off" value={key} onChange={(event) => setKey(event.target.value)} /></label> : null}

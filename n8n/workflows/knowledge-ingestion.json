@@ -1,0 +1,48 @@
+{
+  "name": "SupportLoop — Knowledge Ingestion Trigger",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "support-loop/ingest",
+        "responseMode": "responseNode"
+      },
+      "id": "ingest-webhook",
+      "name": "Ingestion Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "command": "cd /app && node --env-file=/env/.env scripts/ingestKnowledge.js /knowledge/demo 2>&1 | tail -20"
+      },
+      "id": "run-ingestion",
+      "name": "Run Knowledge Ingest Script",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, output: $json.stdout } }}"
+      },
+      "id": "ingest-response",
+      "name": "Return Ingestion Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [780, 300]
+    }
+  ],
+  "connections": {
+    "Ingestion Webhook": {
+      "main": [[{ "node": "Run Knowledge Ingest Script", "type": "main", "index": 0 }]]
+    },
+    "Run Knowledge Ingest Script": {
+      "main": [[{ "node": "Return Ingestion Result", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "notes": "Déclenche manuellement ou via webhook une réingestion des documents de la Knowledge Base. Nécessite que n8n soit sur le même réseau Docker que le backend et ait accès au volume /knowledge. Adapter le chemin et la commande selon l'environnement. Pour une ingestion périodique, remplacer le webhook par un Schedule Trigger."
+}

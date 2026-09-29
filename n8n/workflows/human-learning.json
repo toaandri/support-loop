@@ -1,0 +1,102 @@
+{
+  "name": "SupportLoop — Human Learning Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "support-loop/human-learning",
+        "responseMode": "responseNode"
+      },
+      "id": "learning-webhook",
+      "name": "Learning Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "is-resolved",
+              "leftValue": "={{ $json.body.action }}",
+              "rightValue": "resolve",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "is-resolve",
+      "name": "Is Resolution?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.SUPPORT_LOOP_BACKEND_URL || 'http://backend:3000'}}/api/support/knowledge?status=new",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "x-support-key", "value": "={{ $env.SUPPORT_ADMIN_KEY || '' }}" }] }
+      },
+      "id": "fetch-new-knowledge",
+      "name": "Fetch New Knowledge",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [780, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const knowledge = $input.item.json.knowledge || [];\nconst recent = knowledge.filter(k => {\n  const created = new Date(k.created_at);\n  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);\n  return created > fiveMinutesAgo;\n});\nreturn [{ json: { new_entries: recent.length, entries: recent, timestamp: new Date().toISOString() } }];"
+      },
+      "id": "find-recent-entry",
+      "name": "Find Recent Knowledge Entry",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pas une résolution — rien à faire\nreturn [{ json: { skipped: true, action: $('Learning Webhook').item.json.body?.action } }];"
+      },
+      "id": "skip-action",
+      "name": "Skip — Not a Resolution",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 420]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "learning-response",
+      "name": "Learning Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1040, 540]
+    }
+  ],
+  "connections": {
+    "Learning Webhook": {
+      "main": [[{ "node": "Is Resolution?", "type": "main", "index": 0 }]]
+    },
+    "Is Resolution?": {
+      "main": [
+        [{ "node": "Fetch New Knowledge", "type": "main", "index": 0 }],
+        [{ "node": "Skip — Not a Resolution", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch New Knowledge": {
+      "main": [[{ "node": "Find Recent Knowledge Entry", "type": "main", "index": 0 }]]
+    },
+    "Find Recent Knowledge Entry": {
+      "main": [[{ "node": "Learning Response", "type": "main", "index": 0 }]]
+    },
+    "Skip — Not a Resolution": {
+      "main": [[{ "node": "Learning Response", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "notes": "Intercepte les actions de résolution de conversation et vérifie si une nouvelle connaissance a été extraite automatiquement par le backend (via _extractAndStore). Peut déclencher un rappel à l'équipe pour validation rapide. Note : l'extraction est déjà déclenchée automatiquement par le backend à chaque 'resolve' — ce workflow complète le pipeline en n8n."
+}

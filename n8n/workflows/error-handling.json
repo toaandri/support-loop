@@ -1,0 +1,100 @@
+{
+  "name": "SupportLoop — Error Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "support-loop/error",
+        "responseMode": "responseNode"
+      },
+      "id": "error-webhook",
+      "name": "Error Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.item.json.body || {};\nconst level = body.level || 'error';\nconst message = body.message || 'Unknown error';\nconst context = body.context || {};\nconst entry = {\n  timestamp: new Date().toISOString(),\n  level,\n  source: 'supportloop',\n  message,\n  ...context\n};\nconsole.error(JSON.stringify(entry));\nreturn [{ json: entry }];"
+      },
+      "id": "log-error",
+      "name": "Log Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "is-critical",
+              "leftValue": "={{ $json.level }}",
+              "rightValue": "error",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "is-critical",
+      "name": "Is Critical?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [780, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// TODO: envoyer une alerte critique (PagerDuty, email, Slack)\nreturn [{ json: { alerted: false, note: 'Connect a Slack or Email node here for critical alerts.', ...($input.item.json) } }];"
+      },
+      "id": "critical-alert",
+      "name": "Send Critical Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Warning ou info — juste loggé\nreturn [{ json: { alerted: false, logged: true, ...($input.item.json) } }];"
+      },
+      "id": "log-only",
+      "name": "Log Only",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 420]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { received: true, level: $json.level } }}"
+      },
+      "id": "error-response",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [520, 520]
+    }
+  ],
+  "connections": {
+    "Error Webhook": {
+      "main": [[{ "node": "Log Error", "type": "main", "index": 0 }]]
+    },
+    "Log Error": {
+      "main": [[{ "node": "Is Critical?", "type": "main", "index": 0 }]],
+      "error": [[{ "node": "Error Response", "type": "main", "index": 0 }]]
+    },
+    "Is Critical?": {
+      "main": [
+        [{ "node": "Send Critical Alert", "type": "main", "index": 0 }],
+        [{ "node": "Log Only", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send Critical Alert": {
+      "main": [[{ "node": "Error Response", "type": "main", "index": 0 }]]
+    },
+    "Log Only": {
+      "main": [[{ "node": "Error Response", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "notes": "Centralise la gestion des erreurs provenant des autres workflows n8n ou du backend. Reçoit un événement d'erreur (level, message, context), le logue en JSON et envoie une alerte si le niveau est 'error'. Configurer ce workflow comme Error Workflow global dans les paramètres n8n. Connecter 'Send Critical Alert' à Slack/PagerDuty/Email."
+}

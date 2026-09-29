@@ -1,0 +1,67 @@
+{
+  "name": "SupportLoop — Knowledge Base Search",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "support-loop/knowledge-search",
+        "responseMode": "responseNode"
+      },
+      "id": "search-webhook",
+      "name": "Knowledge Search Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPPORT_LOOP_BACKEND_URL || 'http://backend:3000'}}/api/chat",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "x-customer-key", "value": "={{ $env.CUSTOMER_API_KEY || '' }}" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"conversationId\": \"n8n-kb-search-{{ $now.toISOString().slice(0,19).replace(/[:.]/g,'-') }}\",\n  \"message\": {{ JSON.stringify($json.body.query || '') }},\n  \"channel\": \"n8n-search\"\n}"
+      },
+      "id": "call-agent",
+      "name": "Call Agent with Query",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.item.json;\nreturn [{\n  json: {\n    answer: response.message?.content || null,\n    sources: response.message?.metadata?.sources || [],\n    confidence: response.message?.metadata?.confidence || null,\n    status: response.status\n  }\n}];"
+      },
+      "id": "extract-result",
+      "name": "Extract Search Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "search-response",
+      "name": "Search Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1040, 300]
+    }
+  ],
+  "connections": {
+    "Knowledge Search Webhook": {
+      "main": [[{ "node": "Call Agent with Query", "type": "main", "index": 0 }]]
+    },
+    "Call Agent with Query": {
+      "main": [[{ "node": "Extract Search Result", "type": "main", "index": 0 }]]
+    },
+    "Extract Search Result": {
+      "main": [[{ "node": "Search Response", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "notes": "Expose la Knowledge Base comme endpoint de recherche n8n. Reçoit { query } et retourne { answer, sources, confidence, status }. Utilise le backend comme proxy — en mode RAG, la recherche vectorielle pgvector est activée. Utile pour interroger la KB depuis d'autres workflows n8n sans passer par l'interface de chat."
+}

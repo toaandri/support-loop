@@ -153,7 +153,8 @@ summary { cursor: pointer; overflow-wrap: anywhere; }
 .kpi-label { font-size: 0.75rem; color: #667780; }
 
 /* V6 Knowledge Review */
-.knowledge-detail { display: flex; flex-direction: column; }
+.knowledge-detail { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.case-workspace .workspace-empty { min-height: 200px; flex: 1; }
 .knowledge-section { padding: 0 0 20px; border-bottom: 1px solid #e5eaec; margin-bottom: 20px; }
 .knowledge-section:last-child { border-bottom: 0; }
 .knowledge-section h3 { font-size: 0.82rem; color: #667780; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 10px; }

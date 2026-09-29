@@ -1,0 +1,83 @@
+{
+  "name": "SupportLoop — Customer Data Enrichment",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "support-loop/enrich",
+        "responseMode": "responseNode"
+      },
+      "id": "enrich-webhook",
+      "name": "Enrich Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.SUPPORT_LOOP_BACKEND_URL || 'http://backend:3000'}}/api/customer",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "x-customer-key", "value": "={{ $env.CUSTOMER_API_KEY || '' }}" }] }
+      },
+      "id": "fetch-customer",
+      "name": "Fetch Customer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 220]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.SUPPORT_LOOP_BACKEND_URL || 'http://backend:3000'}}/api/orders",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "x-customer-key", "value": "={{ $env.CUSTOMER_API_KEY || '' }}" }] }
+      },
+      "id": "fetch-orders",
+      "name": "Fetch Orders",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const customer = $('Fetch Customer').item.json.customer;\nconst orders = $('Fetch Orders').item.json.orders || [];\nconst openOrders = orders.filter(o => ['processing','shipped'].includes(o.status));\nreturn [{\n  json: {\n    customer,\n    orders,\n    open_orders_count: openOrders.length,\n    has_shipped_order: openOrders.some(o => o.status === 'shipped'),\n    enrichedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "merge-data",
+      "name": "Merge Customer + Orders",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "enrich-response",
+      "name": "Enrichment Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1040, 300]
+    }
+  ],
+  "connections": {
+    "Enrich Webhook": {
+      "main": [
+        [{ "node": "Fetch Customer", "type": "main", "index": 0 }],
+        [{ "node": "Fetch Orders", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Customer": {
+      "main": [[{ "node": "Merge Customer + Orders", "type": "main", "index": 0 }]]
+    },
+    "Fetch Orders": {
+      "main": [[{ "node": "Merge Customer + Orders", "type": "main", "index": 0 }]]
+    },
+    "Merge Customer + Orders": {
+      "main": [[{ "node": "Enrich Webhook", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "notes": "Enrichit les données client en combinant profil et commandes depuis le backend. Retourne un profil enrichi indiquant le nombre de commandes ouvertes, si une commande est expédiée, etc. Peut être appelé en sous-workflow depuis d'autres workflows n8n."
+}

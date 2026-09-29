@@ -1,0 +1,122 @@
+{
+  "name": "SupportLoop — Outbound Notifications",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "support-loop/notify",
+        "responseMode": "responseNode"
+      },
+      "id": "notify-webhook",
+      "name": "Notification Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "dataPropertyName": "body",
+        "rules": {
+          "rules": [
+            {
+              "value": "escalation",
+              "output": 0
+            },
+            {
+              "value": "resolved",
+              "output": 1
+            },
+            {
+              "value": "knowledge_approved",
+              "output": 2
+            }
+          ]
+        },
+        "fallbackOutput": 3
+      },
+      "id": "event-router",
+      "name": "Route by Event Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// TODO: envoyer une notification d'escalade (email, Slack, webhook)\n// $input.item.json contient: conversationId, customerId, reason, confidence\nconst { conversationId, reason, confidence } = $input.item.json.body || {};\nreturn [{ json: { type: 'escalation', conversationId, reason, confidence, sent: false, note: 'Connect an Email or Slack node here.' } }];"
+      },
+      "id": "escalation-notif",
+      "name": "Escalation Notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 160]
+    },
+    {
+      "parameters": {
+        "jsCode": "// TODO: notifier le client que son dossier est résolu\nconst { conversationId, customerId } = $input.item.json.body || {};\nreturn [{ json: { type: 'resolved', conversationId, customerId, sent: false, note: 'Connect an Email node here.' } }];"
+      },
+      "id": "resolved-notif",
+      "name": "Resolution Notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// TODO: notifier l'admin qu'une connaissance a été approuvée et indexée\nconst { knowledgeId, intent } = $input.item.json.body || {};\nreturn [{ json: { type: 'knowledge_approved', knowledgeId, intent, sent: false, note: 'Connect a notification node here.' } }];"
+      },
+      "id": "knowledge-notif",
+      "name": "Knowledge Approved Notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 440]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Événement non reconnu\nreturn [{ json: { skipped: true, event: $input.item.json.body?.event } }];"
+      },
+      "id": "unknown-event",
+      "name": "Unknown Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 580]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "notify-response",
+      "name": "Notification Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1060, 300]
+    }
+  ],
+  "connections": {
+    "Notification Webhook": {
+      "main": [[{ "node": "Route by Event Type", "type": "main", "index": 0 }]]
+    },
+    "Route by Event Type": {
+      "main": [
+        [{ "node": "Escalation Notification", "type": "main", "index": 0 }],
+        [{ "node": "Resolution Notification", "type": "main", "index": 0 }],
+        [{ "node": "Knowledge Approved Notification", "type": "main", "index": 0 }],
+        [{ "node": "Unknown Event", "type": "main", "index": 0 }]
+      ]
+    },
+    "Escalation Notification": {
+      "main": [[{ "node": "Notification Response", "type": "main", "index": 0 }]]
+    },
+    "Resolution Notification": {
+      "main": [[{ "node": "Notification Response", "type": "main", "index": 0 }]]
+    },
+    "Knowledge Approved Notification": {
+      "main": [[{ "node": "Notification Response", "type": "main", "index": 0 }]]
+    },
+    "Unknown Event": {
+      "main": [[{ "node": "Notification Response", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "notes": "Hub de notifications sortantes. Reçoit des événements (escalation, resolved, knowledge_approved) et route vers les nœuds de notification appropriés. Remplacer les nœuds Code par des nœuds Email/Slack/HTTP selon l'intégration souhaitée. Le backend peut appeler POST /webhook/support-loop/notify avec { event, ...payload }."
+}

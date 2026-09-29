@@ -1,0 +1,83 @@
+{
+  "name": "SupportLoop — Knowledge Review Daily Reminder",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "triggerAtHour": 9, "field": "hours" }] }
+      },
+      "id": "daily-cron",
+      "name": "Daily at 9h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.SUPPORT_LOOP_BACKEND_URL || 'http://backend:3000'}}/api/support/knowledge?status=new",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "x-support-key", "value": "={{ $env.SUPPORT_ADMIN_KEY || '' }}" }] }
+      },
+      "id": "fetch-pending",
+      "name": "Fetch Pending Knowledge",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "has-pending",
+              "leftValue": "={{ $json.knowledge.length }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ]
+        }
+      },
+      "id": "has-pending-check",
+      "name": "Has Pending?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [780, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const knowledge = $input.item.json.knowledge;\nreturn [{\n  json: {\n    count: knowledge.length,\n    intents: knowledge.map(k => k.extracted_rule?.intent || 'unknown').join(', '),\n    message: `${knowledge.length} connaissance(s) en attente de validation dans SupportLoop.`\n  }\n}];"
+      },
+      "id": "build-summary",
+      "name": "Build Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "// No pending knowledge — nothing to do\nreturn [{ json: { skipped: true } }];"
+      },
+      "id": "no-action",
+      "name": "No Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 400]
+    }
+  ],
+  "connections": {
+    "Daily at 9h": {
+      "main": [[{ "node": "Fetch Pending Knowledge", "type": "main", "index": 0 }]]
+    },
+    "Fetch Pending Knowledge": {
+      "main": [[{ "node": "Has Pending?", "type": "main", "index": 0 }]]
+    },
+    "Has Pending?": {
+      "main": [
+        [{ "node": "Build Summary", "type": "main", "index": 0 }],
+        [{ "node": "No Action", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "notes": "Vérifie chaque matin à 9h les connaissances en statut 'new'. Si des entrées sont en attente, prépare un résumé. Connecter le nœud 'Build Summary' à un nœud Email/Slack pour envoyer la notification à l'équipe."
+}
