@@ -101,7 +101,8 @@ describe('OpenAI provider', () => {
   it('rejects malformed vectors and failed requests', async () => {
     const fetchImpl = vi.fn().mockResolvedValue({ ok: true,
       json: async () => ({ data: [{ index: 0, embedding: [1] }] }) });
-    const provider = createOpenAIProvider({ apiKey: 'test', fetchImpl });
+    // maxRetries: 0 so retry backoff does not slow down the test
+    const provider = createOpenAIProvider({ apiKey: 'test', fetchImpl, maxRetries: 0 });
     await expect(provider.embed(['a'])).rejects.toThrow('Invalid embedding');
     fetchImpl.mockResolvedValue({ ok: false, status: 429 });
     await expect(provider.embed(['a'])).rejects.toThrow('(429)');

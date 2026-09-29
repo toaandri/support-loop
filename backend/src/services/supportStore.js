@@ -36,6 +36,7 @@ const demoOrders = [
 export function createMemorySupportStore() {
   const conversations = new Map();
   const tickets = new Map();
+  const learnedKnowledge = new Map();
   const pending = new Map();
   let threshold = 0.85;
   const repo = {
@@ -89,6 +90,38 @@ export function createMemorySupportStore() {
     async listConversations() { return structuredClone([...conversations.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))); },
     async getThreshold() { return threshold; },
     async setThreshold(value) { threshold = value; },
+    async createLearnedKnowledge(entry) { learnedKnowledge.set(entry.id, structuredClone(entry)); },
+    async getLearnedKnowledge(id) {
+      const entry = learnedKnowledge.get(id);
+      if (!entry) throw httpError(404, 'Learned knowledge not found.');
+      return structuredClone(entry);
+    },
+    async listLearnedKnowledge({ status } = {}) {
+      const rows = [...learnedKnowledge.values()].sort((a, b) => b.created_at.localeCompare(a.created_at));
+      return structuredClone(status ? rows.filter((row) => row.status === status) : rows);
+    },
+    async updateLearnedKnowledge(id, patch) {
+      const existing = learnedKnowledge.get(id);
+      if (!existing) throw httpError(404, 'Learned knowledge not found.');
+      Object.assign(existing, patch);
+    },
+    async stats() {
+      const all = [...conversations.values()];
+      const allTickets = [...tickets.values()];
+      const lk = [...learnedKnowledge.values()];
+      return {
+        conversations_total: all.length,
+        conversations_resolved: all.filter((c) => c.status === 'resolved').length,
+        conversations_waiting: all.filter((c) => c.status === 'waiting').length,
+        conversations_human: all.filter((c) => c.status === 'human').length,
+        conversations_ai: all.filter((c) => c.status === 'ai').length,
+        tickets_open: allTickets.filter((t) => t.status === 'open').length,
+        tickets_resolved: allTickets.filter((t) => t.status === 'resolved').length,
+        learned_knowledge_total: lk.length,
+        learned_knowledge_pending_review: lk.filter((k) => k.status === 'new' || k.status === 'review').length,
+        learned_knowledge_active: lk.filter((k) => k.status === 'active').length,
+      };
+    },
     async close() {}
   };
 }
@@ -158,6 +191,48 @@ export function createPostgresSupportStore(connectionString) {
     },
     async getThreshold() { return (await pool.query('SELECT confidence_threshold FROM support_settings WHERE id = 1')).rows[0].confidence_threshold; },
     async setThreshold(value) { await pool.query('UPDATE support_settings SET confidence_threshold = $1 WHERE id = 1', [value]); },
+    async createLearnedKnowledge(entry) {
+      await pool.query(`INSERT INTO learned_knowledge
+        (id, conversation_id, question, ai_answer, human_answer, extracted_rule, status, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [entry.id, entry.conversation_id, entry.question, entry.ai_answer || null,
+        entry.human_answer, entry.extracted_rule ? JSON.stringify(entry.extracted_rule) : null,
+        entry.status, entry.created_at]);
+    },
+    async getLearnedKnowledge(id) {
+      const row = (await pool.query('SELECT * FROM learned_knowledge WHERE id = $1', [id])).rows[0];
+      if (!row) throw httpError(404, 'Learned knowledge not found.');
+      return row;
+    },
+    async listLearnedKnowledge({ status } = {}) {
+      if (status) return (await pool.query('SELECT * FROM learned_knowledge WHERE status = $1 ORDER BY created_at DESC', [status])).rows;
+      return (await pool.query('SELECT * FROM learned_knowledge ORDER BY created_at DESC')).rows;
+    },
+    async updateLearnedKnowledge(id, patch) {
+      const fields = Object.keys(patch).map((key, index) => `${key} = $${index + 2}`).join(', ');
+      await pool.query(`UPDATE learned_knowledge SET ${fields} WHERE id = $1`, [id, ...Object.values(patch)]);
+    },
+    async stats() {
+      const [convRow, ticketRow, lkRow] = await Promise.all([
+        pool.query(`SELECT
+          COUNT(*) FILTER (WHERE TRUE) AS conversations_total,
+          COUNT(*) FILTER (WHERE state->>'status' = 'resolved') AS conversations_resolved,
+          COUNT(*) FILTER (WHERE state->>'status' = 'waiting') AS conversations_waiting,
+          COUNT(*) FILTER (WHERE state->>'status' = 'human') AS conversations_human,
+          COUNT(*) FILTER (WHERE state->>'status' = 'ai') AS conversations_ai
+          FROM support_conversations`),
+        pool.query(`SELECT
+          COUNT(*) FILTER (WHERE status = 'open') AS tickets_open,
+          COUNT(*) FILTER (WHERE status = 'resolved') AS tickets_resolved
+          FROM tickets`),
+        pool.query(`SELECT
+          COUNT(*) AS learned_knowledge_total,
+          COUNT(*) FILTER (WHERE status IN ('new','review')) AS learned_knowledge_pending_review,
+          COUNT(*) FILTER (WHERE status = 'active') AS learned_knowledge_active
+          FROM learned_knowledge`)
+      ]);
+      return { ...convRow.rows[0], ...ticketRow.rows[0], ...lkRow.rows[0] };
+    },
     async close() { await pool.end(); }
   };
 }

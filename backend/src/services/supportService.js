@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { appendMessage, httpError } from './supportStore.js';
 import { createToolExecutor } from './agentTools.js';
 import { createSupportAgent, escalationReason } from './supportAgent.js';
@@ -59,6 +60,8 @@ export function createSupportService({ store, provider, knowledgeStore, minSimil
           else if (action === 'resolve') {
             state.status = 'resolved';
             appendMessage(state, 'system', 'Conversation resolue par le conseiller.', { agentName });
+            // V6 : déclencher l'extraction de connaissance en arrière-plan
+            setImmediate(() => this._extractAndStore(id, state).catch(() => {}));
           } else if (action === 'resume') {
             state.status = 'ai'; state.assignedTo = null; state.escalation = null;
             appendMessage(state, 'system', 'Le support automatique reprend la conversation.', { agentName });
@@ -67,6 +70,73 @@ export function createSupportService({ store, provider, knowledgeStore, minSimil
         state.updatedAt = new Date().toISOString();
         return state;
       }, { existingOnly: true });
+    },
+
+    // V6 : extrait une connaissance depuis une conversation resolue et la stocke en statut 'new'
+    async _extractAndStore(conversationId, state) {
+      if (!provider?.extractKnowledge) return;
+      const userMessages = state.messages.filter((m) => m.role === 'user');
+      const humanMessages = state.messages.filter((m) => m.role === 'human');
+      if (!userMessages.length || !humanMessages.length) return;
+      const question = userMessages[0].content;
+      const aiAnswerMsg = state.messages.find((m) => m.role === 'assistant' && m.metadata?.source !== 'handoff');
+      const humanAnswer = humanMessages.map((m) => m.content).join('\n');
+      const extractedRule = await provider.extractKnowledge({
+        question, aiAnswer: aiAnswerMsg?.content || null, humanAnswer
+      });
+      await store.createLearnedKnowledge({
+        id: randomUUID(), conversation_id: conversationId,
+        question: question.slice(0, 1000),
+        ai_answer: aiAnswerMsg?.content?.slice(0, 2000) || null,
+        human_answer: humanAnswer.slice(0, 2000),
+        extracted_rule: extractedRule,
+        status: 'new',
+        created_at: new Date().toISOString()
+      });
+    },
+
+    // V6 : approuve une connaissance et l'indexe dans la knowledge base si possible
+    async approveKnowledge(id, { reviewedBy, knowledgeStoreRef = knowledgeStore, providerRef = provider } = {}) {
+      const entry = await store.getLearnedKnowledge(id);
+      if (!['new', 'review'].includes(entry.status)) throw httpError(409, 'Only new or review entries can be approved.');
+      const now = new Date().toISOString();
+      await store.updateLearnedKnowledge(id, { status: 'approved', reviewed_at: now, reviewed_by: reviewedBy || null });
+      // Indexation vectorielle si le provider et le knowledgeStore sont disponibles
+      if (providerRef && knowledgeStoreRef) {
+        const source = `learned/${id}.md`;
+        const rule = entry.extracted_rule;
+        const text = rule
+          ? `# ${rule.intent}\n\nCondition: ${rule.condition}\n\nResolution: ${rule.resolution}${rule.notes ? `\n\nNotes: ${rule.notes}` : ''}\n\nHuman answer: ${entry.human_answer}`
+          : `Question: ${entry.question}\n\nAnswer: ${entry.human_answer}`;
+        const [embedding] = await providerRef.embed([text]);
+        const { createHash } = await import('node:crypto');
+        const hash = createHash('sha256').update(`chunk-v1\n${text}`).digest('hex');
+        await knowledgeStoreRef.replaceDocument({
+          source, hash, model: providerRef.embeddingModel,
+          chunks: [text], embeddings: [embedding]
+        });
+        await store.updateLearnedKnowledge(id, { status: 'active' });
+      }
+      return store.getLearnedKnowledge(id);
+    },
+
+    async rejectKnowledge(id, { reviewedBy } = {}) {
+      const entry = await store.getLearnedKnowledge(id);
+      if (!['new', 'review'].includes(entry.status)) throw httpError(409, 'Only new or review entries can be rejected.');
+      await store.updateLearnedKnowledge(id, {
+        status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: reviewedBy || null
+      });
+      return store.getLearnedKnowledge(id);
+    },
+
+    async editKnowledge(id, { extracted_rule, human_answer }) {
+      await store.getLearnedKnowledge(id); // vérifie existence
+      const patch = {};
+      if (extracted_rule !== undefined) patch.extracted_rule = extracted_rule;
+      if (human_answer !== undefined) patch.human_answer = human_answer.slice(0, 2000);
+      if (!Object.keys(patch).length) throw httpError(400, 'Nothing to update.');
+      await store.updateLearnedKnowledge(id, patch);
+      return store.getLearnedKnowledge(id);
     }
   };
 }

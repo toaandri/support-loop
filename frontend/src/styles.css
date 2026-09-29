@@ -138,4 +138,26 @@ summary { cursor: pointer; overflow-wrap: anywhere; }
   .product { grid-template-columns: 120px minmax(0, 1fr); }
   .product img { height: 100%; min-height: 240px; }
   .workspace-empty { min-height: 250px; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* V7 Dashboard */
+.dashboard { padding: 24px 0; }
+.dashboard h2 { font-size: 1rem; margin-bottom: 16px; color: #394951; }
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 8px; }
+.kpi { background: white; border: 1px solid #d7dfe3; border-radius: 8px; padding: 20px 16px; display: flex; flex-direction: column; gap: 8px; }
+.kpi.resolved { border-left: 3px solid #28724f; }
+.kpi.waiting { border-left: 3px solid #805c13; }
+.kpi.human { border-left: 3px solid #3f6393; }
+.kpi-value { font-size: 2rem; font-weight: 700; color: #20272c; line-height: 1; }
+.kpi-label { font-size: 0.75rem; color: #667780; }
+
+/* V6 Knowledge Review */
+.knowledge-detail { display: flex; flex-direction: column; }
+.knowledge-section { padding: 0 0 20px; border-bottom: 1px solid #e5eaec; margin-bottom: 20px; }
+.knowledge-section:last-child { border-bottom: 0; }
+.knowledge-section h3 { font-size: 0.82rem; color: #667780; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 10px; }
+.knowledge-text { font-size: 0.9rem; line-height: 1.6; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.knowledge-text.ai-answer { background: #fff8e7; padding: 10px 14px; border-radius: 6px; color: #6b5000; }
+.knowledge-text.human-answer { background: #e5f2ed; padding: 10px 14px; border-radius: 6px; color: #1c4d38; }
+.knowledge-rule { font-size: 0.78rem; background: #f4f6f7; padding: 14px; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }

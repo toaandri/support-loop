@@ -45,3 +45,19 @@ CREATE TABLE IF NOT EXISTS support_settings (
 );
 INSERT INTO support_settings (id, confidence_threshold) VALUES (1, 0.85) ON CONFLICT DO NOTHING;
 CREATE INDEX IF NOT EXISTS support_conversations_customer_idx ON support_conversations(customer_id);
+
+-- V6 : Learning Loop
+CREATE TABLE IF NOT EXISTS learned_knowledge (
+  id uuid PRIMARY KEY,
+  conversation_id text NOT NULL REFERENCES support_conversations(id),
+  question text NOT NULL,
+  ai_answer text,
+  human_answer text NOT NULL,
+  extracted_rule jsonb,
+  status text NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'review', 'approved', 'rejected', 'active')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  reviewed_at timestamptz,
+  reviewed_by text
+);
+CREATE INDEX IF NOT EXISTS learned_knowledge_status_idx ON learned_knowledge(status);
+CREATE INDEX IF NOT EXISTS learned_knowledge_conversation_idx ON learned_knowledge(conversation_id);

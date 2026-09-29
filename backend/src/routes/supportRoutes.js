@@ -16,7 +16,7 @@ export function createSupportRouter(service, { demoMode = true, customerKey, adm
     throw new Error('Distinct CUSTOMER_API_KEY and SUPPORT_ADMIN_KEY are required outside demo mode.');
   }
   const router = Router();
-  router.get('/health', (req, res) => res.json({ status: 'ok', service: 'support-loop-backend', mode, demoMode, version: 5 }));
+  router.get('/health', (req, res) => res.json({ status: 'ok', service: 'support-loop-backend', mode, demoMode, version: 8 }));
   router.use('/support', (req, res, next) => {
     if (matches(req.get('x-support-key'), adminKey) || (demoMode && !adminKey)) return next();
     return res.status(401).json({ error: 'Support access key required.' });
@@ -40,6 +40,29 @@ export function createSupportRouter(service, { demoMode = true, customerKey, adm
     res.json({ ...conversation, customer: await service.store.customer(conversation.customerId),
       orders: await service.store.orders(conversation.customerId), tickets: await service.store.tickets(conversation.customerId) });
   }));
+  router.get('/support/stats', wrap(async (req, res) => res.json(await service.store.stats())));
+
+  router.get('/support/knowledge', wrap(async (req, res) => {
+    const { status } = req.query;
+    const allowed = ['new', 'review', 'approved', 'rejected', 'active'];
+    if (status !== undefined && !allowed.includes(status)) throw httpError(400, 'Invalid status filter.');
+    res.json({ knowledge: await service.store.listLearnedKnowledge(status ? { status } : {}) });
+  }));
+  router.get('/support/knowledge/:id', wrap(async (req, res) => {
+    res.json(await service.store.getLearnedKnowledge(req.params.id));
+  }));
+  router.post('/support/knowledge/:id/approve', wrap(async (req, res) => {
+    res.json(await service.approveKnowledge(req.params.id, { reviewedBy: agentName }));
+  }));
+  router.post('/support/knowledge/:id/reject', wrap(async (req, res) => {
+    res.json(await service.rejectKnowledge(req.params.id, { reviewedBy: agentName }));
+  }));
+  router.patch('/support/knowledge/:id', wrap(async (req, res) => {
+    const { extracted_rule, human_answer } = req.body || {};
+    if (human_answer !== undefined && !text(human_answer, 2000)) throw httpError(400, 'human_answer must be a non-empty string (max 2000).');
+    res.json(await service.editKnowledge(req.params.id, { extracted_rule, human_answer }));
+  }));
+
   router.post('/support/conversations/:id/:action', wrap(async (req, res) => {
     if (req.params.action === 'reply' && !text(req.body?.content, 4000)) throw httpError(400, 'Reply is required (max 4000 characters).');
     res.json(await service.action(req.params.id, req.params.action, { agentName,

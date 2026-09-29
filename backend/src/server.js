@@ -3,6 +3,7 @@ import { createKnowledgeStore } from './services/knowledgeStore.js';
 import { createOpenAIProvider } from './services/openaiProvider.js';
 import { createMemorySupportStore, createPostgresSupportStore } from './services/supportStore.js';
 import { createSupportService } from './services/supportService.js';
+import { logger } from './middleware/logger.js';
 
 const port = Number(process.env.PORT || 3000);
 const mode = process.env.AGENT_MODE || 'demo';
@@ -29,13 +30,20 @@ const app = createApp({ supportService, access: { mode, demoMode,
   adminKey: process.env.SUPPORT_ADMIN_KEY, agentName: process.env.SUPPORT_AGENT_NAME || 'Support' } });
 
 const server = app.listen(port, () => {
-  console.log(`SupportLoop V5 on port ${port} (${mode}, ${storageMode})`);
+  logger.info('Server started', { port, mode, storageMode, version: 8 });
 });
 
+process.on('uncaughtException', (err) => logger.error('Uncaught exception', { error: err.message, stack: err.stack }));
+process.on('unhandledRejection', (reason) => logger.error('Unhandled rejection', { reason: String(reason) }));
+
 for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => server.close(async () => {
-    await knowledgeStore?.close();
-    await store.close();
-    process.exit(0);
-  }));
+  process.on(signal, () => {
+    logger.info('Shutdown signal received', { signal });
+    server.close(async () => {
+      await knowledgeStore?.close();
+      await store.close();
+      logger.info('Server shut down cleanly');
+      process.exit(0);
+    });
+  });
 }

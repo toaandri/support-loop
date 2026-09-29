@@ -3,6 +3,8 @@ import express from 'express';
 import { createChatRouter } from './routes/chatRoutes.js';
 import { createConversationStore } from './services/conversationStore.js';
 import { createSupportRouter } from './routes/supportRoutes.js';
+import { rateLimit } from './middleware/rateLimit.js';
+import { requestLogger } from './middleware/logger.js';
 
 export function createApp(options = {}) {
   const app = express();
@@ -10,6 +12,9 @@ export function createApp(options = {}) {
 
   app.use(cors());
   app.use(express.json());
+  app.use(requestLogger);
+  app.use('/api/chat', rateLimit({ windowMs: 60_000, max: 30 }));
+  app.use('/api/support/knowledge', rateLimit({ windowMs: 60_000, max: 60 }));
   app.use('/api', options.supportService ? createSupportRouter(options.supportService, options.access) :
     createChatRouter(store, options.generateResponse));
 

@@ -479,136 +479,144 @@ support-loop/
 VERSIONNEMENT DU PROJET
 -----------------------
 
-V1 - BASIC AGENT
-----------------
+✅ V1 - BASIC AGENT
+--------------------
 Objectif : avoir un premier agent fonctionnel.
 
-- interface de chat ;
-- appel LLM ;
-- generation de reponses ;
-- historique basique ;
-- premier workflow n8n.
+- ✅ interface de chat (React, SupportApp.jsx)
+- ✅ appel LLM (openaiProvider.js, OpenAI Responses API)
+- ✅ generation de reponses (mode demo + mode RAG)
+- ✅ historique basique (stocke en memoire ou PostgreSQL dans support_conversations)
+- ✅ premier workflow n8n (n8n/workflows/incoming-message.json : webhook -> backend -> reponse)
 
-V2 - KNOWLEDGE BASE / RAG
--------------------------
+✅ V2 - KNOWLEDGE BASE / RAG
+-----------------------------
 Objectif : faire repondre l'agent a partir de documents.
 
-- ingestion de documents ;
-- extraction de texte ;
-- chunking ;
-- embeddings ;
-- PostgreSQL ;
-- pgvector ;
-- recherche semantique ;
-- RAG.
+- ✅ ingestion de documents (backend/scripts/ingestKnowledge.js + documentIngestion.js)
+- ✅ extraction de texte et chunking (documentIngestion.js)
+- ✅ embeddings (OpenAI text-embedding-3-small via openaiProvider.embed())
+- ✅ PostgreSQL (tables knowledge_documents + knowledge_chunks dans database/schema.sql)
+- ✅ pgvector (extension vector activee, colonne embedding vector(1536))
+- ✅ recherche semantique (knowledgeStore.search() avec cosine similarity)
+- ✅ RAG (ragAgent.js + integration dans supportService via search_knowledge_base tool)
+- ✅ documents de demo (knowledge/demo/delivery.md, returns.md)
 
-V3 - CUSTOMER DATA
-------------------
+✅ V3 - CUSTOMER DATA
+-----------------------
 Objectif : connecter l'agent aux donnees de l'entreprise.
 
-- clients ;
-- commandes ;
-- produits ;
-- tickets ;
-- historique ;
-- PostgreSQL ;
-- API backend.
+- ✅ clients (table customers, GET /api/customer)
+- ✅ commandes (table orders + order_items, GET /api/orders, GET /api/orders/:id)
+- ✅ produits (table products, GET /api/products)
+- ✅ tickets (table tickets, GET /api/tickets)
+- ✅ historique (conversations et messages dans support_conversations)
+- ✅ PostgreSQL (createPostgresSupportStore dans supportStore.js)
+- ✅ API backend (supportRoutes.js avec toutes les routes REST)
+- ✅ donnees de demo seed (database/seed.sql : 2 clients, 2 produits, 3 commandes)
 
-V4 - TOOLS / ACTIONS
---------------------
+✅ V4 - TOOLS / ACTIONS
+-------------------------
 Objectif : permettre a l'agent d'agir.
 
-- tool calling ;
-- recherche client ;
-- recherche commande ;
-- suivi commande ;
-- stock ;
-- creation de ticket ;
-- email ;
-- autres APIs.
+- ✅ tool calling (boucle multi-rounds dans openaiProvider.runTools(), max 5 rounds)
+- ✅ recherche client (get_customer implicite via customerId serveur)
+- ✅ recherche commande (get_customer_orders, get_order)
+- ✅ suivi commande (tracking_number dans get_order)
+- ✅ stock (check_stock, search_product)
+- ✅ creation de ticket (create_ticket avec garde-fou sur le contenu)
+- ✅ search_knowledge_base (avec fallback demo sans embedding)
+- ✅ budget d'appels (max 8 calls, validation des arguments, traces)
+- ⚠️ email : non implemente (bloque intentionnellement par le prompt systeme)
+- ⚠️ autres APIs externes : non connectees
 
-V5 - HUMAN HANDOFF
-------------------
+✅ V5 - HUMAN HANDOFF
+-----------------------
 Objectif : faire intervenir un humain quand l'IA n'est pas assez sure.
 
-- score de confiance ;
-- seuil configurable ;
-- escalation ;
-- interface agent humain ;
-- transfert avec contexte ;
-- statut des conversations ;
-- reprise de conversation.
+- ✅ score de confiance (champ confidence dans chaque reponse agent)
+- ✅ seuil configurable (slider dans SupportWorkspace, PATCH /api/support/settings, table support_settings)
+- ✅ escalade automatique (supportAgent.escalationReason + supportService.escalate)
+- ✅ raisons d'escalade : low-confidence, missing-evidence, sensitive-action, customer-distress, customer-request, tool-or-provider-error
+- ✅ interface agent humain (SupportWorkspace.jsx : liste conversations, detail, actions)
+- ✅ transfert avec contexte (historique, commandes, traces outils, raison, ticket, score)
+- ✅ statuts de conversation : ai -> waiting -> human -> resolved
+- ✅ actions conseiller : claim, reply, resolve, resume (reprise par l'IA)
+- ✅ authentification separee client (x-customer-key) et conseiller (x-support-key)
 
-V6 - LEARNING LOOP
-------------------
+❌ V6 - LEARNING LOOP
+-----------------------
 Objectif : permettre au systeme de progresser grace aux interventions humaines.
+STATUT : RIEN N'EST IMPLEMENTE - c'est le prochain grand chantier.
 
-- enregistrement des reponses humaines ;
-- extraction de connaissances ;
-- propositions de nouvelles regles ;
-- statut NEW/REVIEW/APPROVED/ACTIVE ;
-- validation admin ;
-- indexation dans la Knowledge Base ;
-- reutilisation dans les futurs cas similaires ;
-- suivi des corrections IA -> humain.
+- ❌ enregistrement des reponses humaines pour apprentissage
+- ❌ extraction de connaissances depuis la reponse du conseiller (appel LLM d'extraction)
+- ❌ propositions de nouvelles regles/connaissances structurees
+- ❌ statut NEW/REVIEW/APPROVED/ACTIVE pour les connaissances apprises
+- ❌ validation admin (Approve / Reject / Edit)
+- ❌ indexation vectorielle de la nouvelle connaissance approuvee
+- ❌ reutilisation dans les futurs cas similaires
+- ❌ suivi des corrections IA -> humain (question, reponse IA, correction humaine, reponse validee)
+- ❌ table learned_knowledge ou equivalente en base de donnees
+- ❌ page admin de validation dans le frontend
 
-V7 - DASHBOARD
---------------
+❌ V7 - DASHBOARD
+------------------
 Objectif : administrer et mesurer le systeme.
+STATUT : RIEN N'EST IMPLEMENTE.
 
-- dashboard ;
-- conversations ;
-- tickets ;
-- escalations ;
-- knowledge management ;
-- statistiques ;
-- taux de resolution ;
-- performances ;
-- page de validation des connaissances ;
-- logs utiles.
+- ❌ dashboard avec KPIs (conversations today, resolution rate, escalation rate...)
+- ❌ statistiques agregees (taux de resolution automatique, temps moyen de reponse...)
+- ❌ page de gestion des connaissances (liste, statuts, actions)
+- ❌ page de validation des connaissances apprises (interface Approve/Reject/Edit)
+- ❌ logs utiles consulables dans l'UI
+- ❌ visualisation des performances avant/apres ajout de connaissances
+- NOTE : SupportWorkspace.jsx est un workspace operationnel (V5), pas un dashboard analytique
 
-V8 - PRODUCTION / HARDENING
----------------------------
+❌ V8 - PRODUCTION / HARDENING
+--------------------------------
 Objectif : rendre le projet robuste.
+STATUT : PARTIELLEMENT IMPLEMENTE.
 
-- Docker Compose ;
-- gestion des secrets ;
-- authentification ;
-- autorisations ;
-- rate limiting ;
-- retry ;
-- timeout ;
-- gestion des erreurs ;
-- monitoring ;
-- logs structures ;
-- tests ;
-- evaluation automatique de l'agent ;
-- tests de regression ;
-- backup database ;
-- documentation complete.
+- ✅ Docker Compose (backend + postgres + frontend + n8n, avec healthcheck)
+- ✅ gestion des secrets via variables d'environnement (.env.example complet)
+- ✅ authentification (API keys client et conseiller, timingSafeEqual)
+- ✅ gestion des erreurs (middleware Express, escalade sur erreur outil/LLM)
+- ✅ timeout LLM (AbortSignal.timeout(30000) dans openaiProvider)
+- ❌ rate limiting (aucun middleware de rate limiting)
+- ❌ retry (pas de retry automatique sur echec OpenAI ou PostgreSQL)
+- ❌ logs structures (juste console.log basique)
+- ❌ monitoring (aucun Prometheus, Datadog, etc.)
+- ❌ tests complets (structure test/ et vitest installes, mais couverture a verifier/completer)
+- ❌ evaluation automatique de l'agent
+- ❌ tests de regression
+- ❌ backup database
+- ❌ documentation complete (docs/ ne contient que le plan V1)
 
-V9 - MULTI-CHANNEL (OPTIONNEL)
-------------------------------
-Ajouter progressivement :
-- Web chat ;
-- Email ;
-- WhatsApp ou autre canal compatible ;
-- notifications ;
-- unified conversation history.
+❌ V9 - MULTI-CHANNEL (OPTIONNEL)
+----------------------------------
+Objectif : ajouter progressivement d'autres canaux.
+STATUT : NON DEMARRE.
 
-V10 - ADVANCED AGENT EVALUATION (OPTIONNEL)
---------------------------------------------
-Construire un vrai benchmark interne.
+- ⚠️ champ channel present dans le schema (web, email, n8n...) mais non exploite fonctionnellement
+- ❌ Email entrant/sortant
+- ❌ WhatsApp ou autre canal compatible
+- ❌ notifications sortantes
+- ❌ unified conversation history multi-canal
 
-- dataset de questions ;
-- reponses attendues ;
-- test du RAG ;
-- test des tools ;
-- test des escalations ;
-- mesure de precision ;
-- mesure des hallucinations ;
-- mesure du taux de resolution ;
-- comparaison entre versions.
+❌ V10 - ADVANCED AGENT EVALUATION (OPTIONNEL)
+-----------------------------------------------
+Objectif : construire un vrai benchmark interne.
+STATUT : NON DEMARRE.
+
+- ❌ dataset de questions / reponses attendues
+- ❌ test automatise du RAG
+- ❌ test automatise des tools
+- ❌ test automatise des escalations
+- ❌ mesure de precision
+- ❌ mesure des hallucinations
+- ❌ mesure du taux de resolution
+- ❌ comparaison entre versions (avant/apres ajout de connaissances)
 
 OBJECTIF FINAL
 --------------
@@ -650,3 +658,116 @@ Il est inspire des architectures modernes d'agents IA de support client, mais l'
 - l'evaluation des agents IA.
 
 FIN
+
+==============================================================
+LOG DE TRAVAIL - ANALYSE COMPLETE DU REPO
+==============================================================
+Date        : 2025 (session courante)
+Agent IA    : Bob (IBM)
+Mission     : Analyser tout le repo, identifier ce qui est implemente
+              ou non par rapport au fichier "choses a faire.txt",
+              puis mettre a jour ce fichier avec les emojis d'etat.
+
+--------------------------------------------------------------
+CE QUI A ETE FAIT DANS CETTE SESSION
+--------------------------------------------------------------
+
+1. LECTURE COMPLETE DU REPO
+   - Liste recursive de tous les fichiers du projet
+   - Lecture de "choses a faire.txt" (spec complete du projet)
+   - Lecture de tous les fichiers source importants :
+     * backend/src/app.js
+     * backend/src/server.js
+     * backend/src/routes/chatRoutes.js (non montre mais existe)
+     * backend/src/routes/supportRoutes.js
+     * backend/src/services/agentTools.js
+     * backend/src/services/conversationStore.js
+     * backend/src/services/documentIngestion.js (non montre mais existe)
+     * backend/src/services/knowledgeStore.js
+     * backend/src/services/mockAgent.js
+     * backend/src/services/openaiProvider.js
+     * backend/src/services/ragAgent.js
+     * backend/src/services/supportAgent.js
+     * backend/src/services/supportService.js
+     * backend/src/services/supportStore.js
+     * backend/scripts/ingestKnowledge.js
+     * backend/scripts/initDatabase.js
+     * frontend/src/SupportApp.jsx
+     * frontend/src/SupportWorkspace.jsx
+     * frontend/src/MessageList.jsx (existe)
+     * frontend/src/api.js (existe)
+     * database/schema.sql
+     * database/support-schema.sql
+     * database/seed.sql
+     * n8n/workflows/incoming-message.json
+     * docker-compose.yml
+     * .env.example
+     * docs/superpowers/plans/2026-09-14-v1-basic-agent.md
+     * docs/superpowers/specs/2026-09-14-v1-basic-agent-design.md
+
+2. ANALYSE DE L'ETAT D'IMPLEMENTATION
+   Resultat detaille par version (voir section VERSIONNEMENT ci-dessus).
+   Resume :
+   - V1 Basic Agent        : COMPLET ✅
+   - V2 Knowledge Base/RAG : COMPLET ✅
+   - V3 Customer Data      : COMPLET ✅
+   - V4 Tools/Actions      : COMPLET ✅ (sauf email/APIs externes)
+   - V5 Human Handoff      : COMPLET ✅
+   - V6 Learning Loop      : RIEN ❌  <- PRIORITE SUIVANTE
+   - V7 Dashboard          : RIEN ❌
+   - V8 Production         : PARTIEL ⚠️
+   - V9 Multi-Channel      : RIEN ❌
+   - V10 Agent Evaluation  : RIEN ❌
+
+3. MISE A JOUR DE CE FICHIER
+   - Ajout d'emojis ✅/❌/⚠️ sur chaque version et chaque item
+   - Ajout de details concrets (noms de fichiers, noms de fonctions)
+     pour que le prochain agent sache exactement ou regarder
+   - Ajout de ce log a la fin du fichier
+
+--------------------------------------------------------------
+ETAT TECHNIQUE PRECIS POUR LE PROCHAIN AGENT
+--------------------------------------------------------------
+
+STACK EN PLACE :
+- Node.js 20 + Express (backend/src/)
+- React + Vite (frontend/src/)
+- PostgreSQL 16 + pgvector (database/)
+- OpenAI Responses API (pas Chat Completions) pour le LLM
+- OpenAI text-embedding-3-small pour les embeddings, dim=1536
+- n8n pour l'orchestration (un seul workflow pour l'instant)
+- Docker Compose (tous les services : backend, postgres, frontend, n8n)
+
+POINTS D'ATTENTION POUR LA V6 (LEARNING LOOP) :
+- La reponse humaine est deja accessible dans supportService.js action()
+  via action === 'reply', mais elle n'est pas exploitee pour l'apprentissage.
+- Il faudra une nouvelle table SQL (ex: learned_knowledge) avec les colonnes :
+  id, conversation_id, question, ai_answer, human_answer, extracted_rule (jsonb),
+  status (NEW/REVIEW/APPROVED/ACTIVE), created_at, approved_at, approved_by
+- Il faudra un appel LLM supplementaire apres action === 'resolve' pour extraire
+  la connaissance depuis les messages de la conversation.
+- Il faudra de nouvelles routes backend :
+  GET  /api/support/knowledge           (liste des connaissances a valider)
+  POST /api/support/knowledge/:id/approve
+  POST /api/support/knowledge/:id/reject
+  PATCH /api/support/knowledge/:id      (edition)
+- Il faudra une nouvelle page dans le frontend (onglet "Connaissances" dans SupportWorkspace)
+- Une fois approuvee, la connaissance doit etre indexee via knowledgeStore.replaceDocument()
+  avec un embedding genere par provider.embed()
+
+POINTS D'ATTENTION POUR LA V7 (DASHBOARD) :
+- Ajouter des routes d'agregation :
+  GET /api/support/stats   (conversations today, resolution rate, escalation rate...)
+- Ajouter un onglet Dashboard dans SupportWorkspace.jsx ou une nouvelle page
+
+FICHIERS CLES A MODIFIER EN PRIORITE POUR V6 :
+- database/support-schema.sql   -> ajouter table learned_knowledge
+- database/seed.sql             -> pas de seed necessaire
+- backend/src/services/supportService.js -> hook sur action resolve
+- backend/src/routes/supportRoutes.js    -> nouvelles routes knowledge
+- backend/src/services/supportStore.js  -> methodes CRUD learned_knowledge
+- frontend/src/SupportWorkspace.jsx     -> onglet/page validation
+
+==============================================================
+FIN DU LOG
+==============================================================

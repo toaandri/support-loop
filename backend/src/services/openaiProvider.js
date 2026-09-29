@@ -1,18 +1,30 @@
 import { embeddingDimensions, vectorLiteral } from './knowledgeStore.js';
 
+const RETRYABLE = new Set([429, 500, 502, 503, 504]);
+
 export function createOpenAIProvider({ apiKey, embeddingModel = 'text-embedding-3-small',
-  chatModel = 'gpt-4.1-mini', fetchImpl = fetch } = {}) {
+  chatModel = 'gpt-4.1-mini', fetchImpl = fetch, maxRetries = 3 } = {}) {
   if (!apiKey) throw new Error('OPENAI_API_KEY is required for RAG.');
 
   async function request(endpoint, body) {
-    const response = await fetchImpl(`https://api.openai.com/v1/${endpoint}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(30000)
-    });
-    if (!response.ok) throw new Error(`OpenAI ${endpoint} request failed (${response.status}).`);
-    return response.json();
+    let lastError;
+    for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+      if (attempt > 0) {
+        // Exponential backoff: 1s, 2s, 4s with ±10% jitter
+        const delay = (2 ** (attempt - 1)) * 1000 * (0.9 + Math.random() * 0.2);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+      const response = await fetchImpl(`https://api.openai.com/v1/${endpoint}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(30000)
+      });
+      if (response.ok) return response.json();
+      lastError = new Error(`OpenAI ${endpoint} request failed (${response.status}).`);
+      if (!RETRYABLE.has(response.status)) throw lastError;
+    }
+    throw lastError;
   }
 
   return {
@@ -72,6 +84,37 @@ export function createOpenAIProvider({ apiKey, embeddingModel = 'text-embedding-
         vectorLiteral(item.embedding);
         return item.embedding;
       });
+    },
+    async extractKnowledge({ question, aiAnswer, humanAnswer }) {
+      const result = await request('responses', {
+        model: chatModel, store: false,
+        instructions: 'You are a knowledge extraction assistant. ' +
+          'Given a support conversation where the AI gave an answer and a human agent corrected or resolved it, ' +
+          'extract a structured support rule or policy from the human answer. ' +
+          'Return ONLY valid JSON matching the schema. ' +
+          'Fields: intent (short snake_case label), condition (when this rule applies), ' +
+          'resolution (what to do), notes (optional extra detail or null). ' +
+          'If no clear rule can be extracted, return null for all fields.',
+        input: JSON.stringify({ question, ai_answer: aiAnswer || null, human_answer: humanAnswer }),
+        text: { format: { type: 'json_schema', name: 'extracted_rule', strict: true, schema: {
+          type: 'object',
+          properties: {
+            intent: { type: 'string' }, condition: { type: 'string' },
+            resolution: { type: 'string' }, notes: { type: ['string', 'null'] }
+          },
+          required: ['intent', 'condition', 'resolution', 'notes'],
+          additionalProperties: false
+        } } },
+        max_output_tokens: 400
+      });
+      if (result.status !== 'completed') return null;
+      const text = result.output?.flatMap((item) => item.content || [])
+        .filter((item) => item.type === 'output_text').map((item) => item.text).join('');
+      try {
+        const rule = JSON.parse(text);
+        if (!rule.intent || !rule.condition || !rule.resolution) return null;
+        return rule;
+      } catch { return null; }
     },
     async answer({ question, history, sources }) {
       const result = await request('responses', {
