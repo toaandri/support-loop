@@ -4,7 +4,7 @@ import { api, statusLabels, reasonLabels } from './api.js';
 
 const n = (value) => Number(value) || 0;
 const pct = (a, b) => b > 0 ? `${Math.round(n(a) / n(b) * 100)}%` : '—';
-export default function Dashboard({ apiKey, onSelect, onKnowledge }) {
+export default function Dashboard({ apiKey, onSelect, onKnowledge, onUnauthorized }) {
   const [stats, setStats] = useState(null);
   const [rows, setRows] = useState([]);
   const [error, setError] = useState('');
@@ -15,7 +15,7 @@ export default function Dashboard({ apiKey, onSelect, onKnowledge }) {
         const [data, conversations] = await Promise.all([api('/support/stats', { support: true, key: apiKey }),
           api('/support/conversations', { support: true, key: apiKey })]);
         if (active) { setStats(data); setRows(conversations.conversations); setError(''); }
-      } catch (err) { if (active) setError(err.message); }
+      } catch (err) { if (active) { setError(err.message); if (err.status === 401) onUnauthorized(err.message); } }
     }
     refresh(); const interval = setInterval(refresh, 5000);
     return () => { active = false; clearInterval(interval); };
@@ -41,9 +41,9 @@ export default function Dashboard({ apiKey, onSelect, onKnowledge }) {
     <div className="kpi-grid">
       {[
         { label: 'Conversations', value: total, icon: MessagesSquare, detail: `${n(stats.conversations_today)} ouvertes aujourd’hui`, color: 'green' },
-        { label: 'Taux de résolution', value: pct(resolved, total), icon: CheckCheck, detail: `${resolved} dossiers résolus par un conseiller`, color: 'mint' },
+        { label: 'Taux de résolution', value: pct(resolved, total), icon: CheckCheck, detail: `${resolved} dossier${resolved > 1 ? 's résolus' : ' résolu'} par un conseiller`, color: 'mint' },
         { label: 'Transfert humain', value: pct(escalated, total), icon: Headset, detail: `${n(stats.conversations_waiting)} en attente de prise en charge`, color: 'amber' },
-        { label: 'Connaissances actives', value: active, icon: BookOpen, detail: `${pending} propositions à valider`, color: 'blue' }
+        { label: 'Connaissances actives', value: active, icon: BookOpen, detail: `${pending} proposition${pending > 1 ? 's' : ''} à valider`, color: 'blue' }
       ].map((item) => <article className="kpi" key={item.label}><div className="kpi-top"><span>{item.label}</span><span className={`kpi-icon ${item.color}`}><item.icon size={18} /></span></div>
         <strong className="kpi-value">{item.value}</strong><span className="kpi-detail">{item.detail}</span></article>)}
     </div>
@@ -62,7 +62,7 @@ export default function Dashboard({ apiKey, onSelect, onKnowledge }) {
           <span className={`badge ${row.status}`}>{statusLabels[row.status]}</span><span className="muted">{new Date(row.updatedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}<ArrowUpRight size={14} /></span>
         </button>)}</div> : <div className="workspace-empty"><MessagesSquare size={28} /><p>Votre première conversation commence dans l’espace client.</p></div>}
     </section><section className="learning-card"><div className="learning-card-top"><span className="kpi-icon green"><Sparkles size={21} /></span><span className="eyebrow">LEARNING LOOP</span></div>
-      <h2>La prochaine bonne réponse<br />commence ici.</h2><p>Chaque résolution humaine peut enrichir votre support. Vous gardez le dernier mot.</p>
+      <h2>La prochaine bonne réponse<br /> commence ici.</h2><p>Chaque résolution humaine peut enrichir votre support. Vous gardez le dernier mot.</p>
       <div className="learning-count"><strong>{pending}</strong><span>connaissance{pending > 1 ? 's' : ''}<br />à réviser</span></div><button onClick={onKnowledge}>Ouvrir les connaissances <ArrowUpRight size={16} /></button>
       <small><ShieldCheck size={12} />Activation après validation uniquement</small></section></div>
     <details className="metrics-details"><summary>Voir les indicateurs détaillés</summary><div className="metrics-grid"><div><strong>{n(stats.tickets_open)}</strong><span>Tickets ouverts</span></div><div><strong>{n(stats.tickets_resolved)}</strong><span>Tickets résolus</span></div><div><strong>{n(stats.human_responses)}</strong><span>Réponses humaines</span></div><div><strong>{n(stats.learned_knowledge_total)}</strong><span>Connaissances proposées</span></div></div>

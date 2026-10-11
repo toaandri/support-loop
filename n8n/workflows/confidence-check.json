@@ -5,26 +5,40 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "support-loop/confidence",
-        "responseMode": "responseNode"
+        "responseMode": "responseNode",
+        "authentication": "headerAuth"
       },
       "id": "confidence-webhook",
       "name": "Confidence Check Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [260, 300]
+      "position": [
+        260,
+        300
+      ]
     },
     {
       "parameters": {
         "method": "GET",
         "url": "={{$env.SUPPORT_LOOP_BACKEND_URL || 'http://backend:3000'}}/api/support/settings",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "x-support-key", "value": "={{ $env.SUPPORT_ADMIN_KEY || '' }}" }] }
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-support-key",
+              "value": "={{ $env.SUPPORT_ADMIN_KEY || '' }}"
+            }
+          ]
+        }
       },
       "id": "fetch-threshold",
       "name": "Fetch Threshold",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [520, 300]
+      "position": [
+        520,
+        300
+      ]
     },
     {
       "parameters": {
@@ -34,7 +48,10 @@
       "name": "Evaluate Confidence",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [780, 300]
+      "position": [
+        780,
+        300
+      ]
     },
     {
       "parameters": {
@@ -45,20 +62,49 @@
       "name": "Confidence Response",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1040, 300]
+      "position": [
+        1040,
+        300
+      ]
     }
   ],
   "connections": {
     "Confidence Check Webhook": {
-      "main": [[{ "node": "Fetch Threshold", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Fetch Threshold",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Fetch Threshold": {
-      "main": [[{ "node": "Evaluate Confidence", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Evaluate Confidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Evaluate Confidence": {
-      "main": [[{ "node": "Confidence Response", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Confidence Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "settings": { "executionOrder": "v1" },
+  "settings": {
+    "executionOrder": "v1"
+  },
   "notes": "Évalue si un score de confiance est suffisant par rapport au seuil configuré. Reçoit { confidence, needsHuman } et retourne { shouldEscalate, reason }. Note : cette logique est déjà intégrée dans le backend (supportService.chat). Ce workflow sert à exposer la même évaluation depuis n8n pour des pipelines externes."
 }

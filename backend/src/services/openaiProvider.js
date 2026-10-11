@@ -99,8 +99,8 @@ export function createOpenAIProvider({ apiKey, embeddingModel = 'text-embedding-
         text: { format: { type: 'json_schema', name: 'extracted_rule', strict: true, schema: {
           type: 'object',
           properties: {
-            intent: { type: 'string' }, condition: { type: 'string' },
-            resolution: { type: 'string' }, notes: { type: ['string', 'null'] }
+            intent: { type: ['string', 'null'] }, condition: { type: ['string', 'null'] },
+            resolution: { type: ['string', 'null'] }, notes: { type: ['string', 'null'] }
           },
           required: ['intent', 'condition', 'resolution', 'notes'],
           additionalProperties: false

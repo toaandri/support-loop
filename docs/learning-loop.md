@@ -1,82 +1,70 @@
-# SupportLoop — Learning Loop (V6)
+# Boucle d’apprentissage
 
-## Concept
+La connaissance progresse grâce aux réponses humaines validées. Aucun modèle
+n’est réentraîné automatiquement et aucune réponse humaine n’est activée sans revue.
 
-Après chaque intervention humaine résolue, le système extrait automatiquement une connaissance structurée
-depuis la réponse du conseiller. Cette connaissance passe par un workflow de validation avant d'être
-indexée dans la Knowledge Base et utilisée par l'agent IA pour les futurs cas similaires.
-
-## Pipeline
-
-```
-Conversation résolue par le conseiller
-    │
-    ▼ (setImmediate — arrière-plan)
-supportService._extractAndStore()
-    │
-    ├── openaiProvider.extractKnowledge({ question, aiAnswer, humanAnswer })
-    │       └── LLM → { intent, condition, resolution, notes }
-    │
-    └── store.createLearnedKnowledge({ status: 'new', ... })
+```mermaid
+stateDiagram-v2
+    [*] --> new: Résolution avec réponse humaine
+    new --> review: Réviser
+    new --> approved: Approuver
+    review --> approved: Approuver
+    new --> rejected: Rejeter
+    review --> rejected: Rejeter
+    approved --> active: Indexation ou activation locale réussie
+    approved --> approved: Réessayer après échec
 ```
 
-## Workflow de validation
+## Collecte
 
-```
-NEW  →  REVIEW  →  APPROVED  →  ACTIVE
-                ↘
-               REJECTED
-```
+La résolution est sauvegardée dans une transaction avant la collecte. Le service
+analyse le cycle courant de conversation, conserve la question, la réponse IA
+initiale éventuelle et les réponses humaines. En mode RAG, OpenAI propose une
+règle `{ intent, condition, resolution, notes }`. Si l’extraction échoue, la
+réponse humaine reste disponible pour révision, sans règle. La démo collecte la
+réponse sans modèle. Une résolution sans réponse humaine ne crée pas de connaissance.
 
-| Statut | Description |
-|---|---|
-| `new` | Vient d'être extraite, pas encore vue par un admin |
-| `review` | En cours de révision manuelle |
-| `approved` | Approuvée, en attente d'indexation |
-| `active` | Indexée dans pgvector, utilisée par le RAG |
-| `rejected` | Rejetée, non utilisée |
+La route `/support/conversations/:id/learn` permet une relance sur une conversation
+résolue. Une proposition déjà présente pour le même dossier et la même réponse
+humaine n’est pas dupliquée. La collecte attend la fin de son travail avant de
+rendre la réponse de résolution ; une erreur est journalisée sans annuler le dossier.
 
-## Routes API
+## Révision
 
-| Méthode | Route | Description |
-|---|---|---|
-| `GET` | `/api/support/knowledge` | Liste (filtrable par `?status=`) |
-| `GET` | `/api/support/knowledge/:id` | Détail d'une entrée |
-| `POST` | `/api/support/knowledge/:id/approve` | Approuver + indexer |
-| `POST` | `/api/support/knowledge/:id/reject` | Rejeter |
-| `PATCH` | `/api/support/knowledge/:id` | Éditer `human_answer` et/ou `extracted_rule` |
+Dans Connaissances, les entrées sont recherchables et filtrables. Réviser marque
+une nouvelle entrée `review`. Le conseiller peut corriger la réponse, écrire une
+règle JSON, effacer cette règle avec `null`, approuver ou rejeter.
 
-## Indexation vectorielle
+Une règle non nulle doit contenir des chaînes `intent`, `condition`, `resolution`.
+`notes` est optionnel ou nul. Les entrées `approved`, `active` et `rejected` ne
+peuvent plus être éditées via l’API. Cela empêche que le texte affiché d’une
+connaissance active diverge silencieusement de ses chunks indexés.
 
-Quand une connaissance est approuvée et qu'un `knowledgeStore` + `provider` sont disponibles
-(mode `rag`), le système génère un chunk markdown à partir de la règle extraite et l'indexe
-via `knowledgeStore.replaceDocument()`. Le statut passe alors automatiquement à `active`.
+## Activation
 
-En mode `demo` ou `memory`, l'approbation reste au statut `approved` (pas d'indexation réelle).
+En RAG, l’approbation sauvegarde le réviseur et l’horodatage puis crée un embedding
+et remplace `learned/<id>.md` dans pgvector. `active` n’est écrit qu’après succès.
+Si l’indexation échoue, l’entrée reste `approved` et le bouton de relance permet
+de réessayer. Le remplacement du même document est idempotent.
 
-## Structure SQL
+En démo, `active` signifie disponible dans la recherche locale. Le matcher
+compare les mots significatifs de la question, exige au moins deux mots communs
+et un recouvrement d’au moins 65 %. Cette recherche est lexicale et ne prétend
+pas généraliser comme un embedding. Les propositions et les rejets sont exclus.
 
-```sql
-learned_knowledge (
-  id uuid PRIMARY KEY,
-  conversation_id text REFERENCES support_conversations(id),
-  question text,
-  ai_answer text,
-  human_answer text,
-  extracted_rule jsonb,   -- { intent, condition, resolution, notes }
-  status text,            -- new | review | approved | rejected | active
-  created_at timestamptz,
-  reviewed_at timestamptz,
-  reviewed_by text
-)
-```
+Si un provider est injecté sans knowledge store (par exemple dans les tests),
+l’approbation reste `approved`. Le serveur RAG exige toujours PostgreSQL.
 
-## Interface Admin
+## Garde-fous et limites
 
-Dans l'espace conseiller, l'onglet **Connaissances** permet de :
-- Lister les connaissances par statut
-- Voir la question client, la réponse IA initiale, la réponse du conseiller
-- Voir la règle extraite par le LLM
-- **Approuver** (→ indexation vectorielle automatique)
-- **Rejeter**
-- **Éditer** la réponse ou la règle avant approbation
+La détection d’action sensible a priorité sur les connaissances actives. Une
+réponse de garantie validée ne permet jamais un remboursement automatique.
+Une règle est un contexte documentaire, pas une permission d’exécuter une action.
+Le contexte spécifique à un client doit être retiré par le réviseur avant validation.
+
+Les actions d’une même entrée sont sérialisées dans le processus backend fourni.
+Pour plusieurs instances, ajouter un verrou distribué/transactionnel, ainsi qu’une
+file persistante pour les extractions. La reprise manuelle `/learn` couvre les
+échecs du périmètre actuel ; il n’y a pas de worker durable caché.
+
+![Boucle réelle dans l’interface](media/learning-loop.gif)

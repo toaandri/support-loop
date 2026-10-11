@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Activity, ArrowDownLeft, ArrowUpRight, ChevronRight, CircleHelp, Headset, KeyRound,
   LayoutDashboard, MessageCircle, MessagesSquare, Package, Plus, Search, Send, ShieldCheck, Sparkles, X, BookOpen } from 'lucide-react';
 import { api, statusLabels, money } from './api.js';
@@ -93,7 +93,7 @@ export default function SupportApp() {
   }
 
   return <div className="app-shell">
-    <a className="skip-link" href="#main-content">Aller au contenu</a>
+    <a className="skip-link" href="#main-content" onClick={(event) => { event.preventDefault(); document.getElementById('main-content')?.focus(); }}>Aller au contenu</a>
     <aside className="sidebar">
       <a href="#dashboard" className="brand" aria-label="SupportLoop, accueil"><span className="brand-mark"><Activity size={22} /></span>
         <span>SupportLoop<span className="brand-caption">CUSTOMER CARE, CONTINUOUSLY.</span></span></a>
@@ -114,7 +114,7 @@ export default function SupportApp() {
           <button className="icon-button secondary" aria-label="Guide de démonstration" title="Guide de démonstration" onClick={() => setHelp(true)}><CircleHelp size={18} /></button>
           {isClient ? <button className="icon-button secondary" title="Accès client" aria-label="Accès client" onClick={() => setShowAccess(!showAccess)}><KeyRound size={18} /></button> : null}
         </div></header>
-      <main id="main-content" className="page-content">
+      <main id="main-content" tabIndex={-1} className="page-content">
         <div className="page-heading"><div><span className="eyebrow">{isClient ? 'À VOTRE ÉCOUTE' : 'VOTRE ESPACE DE SUPPORT'}</span>
           <h1>{headings[view][0]}</h1><p>{headings[view][1]}</p></div>
           <span className="date-label">{new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span></div>
@@ -163,9 +163,24 @@ export default function SupportApp() {
 }
 
 function Guide({ onClose, onStart }) {
+  const dialog = useRef(null);
+  const previousFocus = useRef(document.activeElement);
+  useEffect(() => {
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    dialog.current.querySelector('button')?.focus();
+    const trap = (event) => {
+      if (event.key !== 'Tab') return;
+      const buttons = dialog.current.querySelectorAll('button');
+      if (event.shiftKey && document.activeElement === buttons[0]) { event.preventDefault(); buttons[buttons.length - 1].focus(); }
+      else if (!event.shiftKey && document.activeElement === buttons[buttons.length - 1]) { event.preventDefault(); buttons[0].focus(); }
+    };
+    window.addEventListener('keydown', trap);
+    return () => { window.removeEventListener('keydown', trap); document.body.style.overflow = overflow; previousFocus.current?.focus(); };
+  }, []);
   useEffect(() => { const handler = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler); }, [onClose]);
-  return <div className="modal-backdrop" onClick={onClose}><section role="dialog" aria-modal="true" aria-labelledby="guide-title" className="guide-modal" onClick={(e) => e.stopPropagation()}>
+  return <div className="modal-backdrop" onClick={onClose}><section ref={dialog} role="dialog" aria-modal="true" aria-labelledby="guide-title" className="guide-modal" onClick={(e) => e.stopPropagation()}>
     <button autoFocus className="icon-button secondary close-modal" aria-label="Fermer le guide" onClick={onClose}><X size={19} /></button><span className="agent-avatar"><Sparkles size={24} /></span>
     <span className="eyebrow">LA BOUCLE D’APPRENTISSAGE</span><h2 id="guide-title">Une équipe. Une connaissance qui grandit.</h2>
     <p>L’agent répond quand il dispose d’informations vérifiées. Au moindre doute, un conseiller prend le relais.</p>

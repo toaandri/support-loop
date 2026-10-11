@@ -7,7 +7,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 if (existsSync(path.join(root, '.env'))) process.loadEnvFile(path.join(root, '.env'));
 const processes = [
   spawn(process.execPath, ['--watch', 'src/server.js'], { cwd: path.join(root, 'backend'), stdio: 'inherit' }),
-  spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1'], { cwd: path.join(root, 'frontend'), stdio: 'inherit' })
+  spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', process.env.FRONTEND_PORT || '5173'], { cwd: path.join(root, 'frontend'), stdio: 'inherit' })
 ];
 let stopping = false;
 function stop(code = 0) {

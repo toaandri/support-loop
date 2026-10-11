@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+.git
+.superpowers
+.env
+.env.*
+docs/media
+**/*.log

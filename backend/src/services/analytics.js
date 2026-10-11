@@ -28,7 +28,7 @@ export function conversationAnalytics(conversations, now = new Date()) {
       const message = state.messages[index];
       if (message.role === 'assistant' && message.metadata?.source !== 'handoff') aiResponses++;
       if (message.role === 'human') humanResponses++;
-      if (message.role === 'system' && message.content.startsWith('Conversation resolue')) {
+      if (message.role === 'system' && (message.metadata?.action === 'resolve' || message.content.startsWith('Conversation resolue'))) {
         const resolutionDay = daily.find((row) => row.date === message.createdAt?.slice(0, 10));
         if (resolutionDay) resolutionDay.resolutions++;
       }

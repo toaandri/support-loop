@@ -2,11 +2,12 @@
 
 ## Vue d'ensemble
 
-SupportLoop est un système de support client piloté par un agent IA et orchestré par n8n.
+SupportLoop est un système de support client piloté par un agent IA, avec une
+orchestration n8n facultative. Le chat React appelle directement le backend.
 Le système est conçu autour de cinq couches :
 
 ```
-Client (web / email / WhatsApp)
+Client web / adaptateurs de canaux externes à configurer
         │
        n8n  ←─── orchestration, webhooks, cron
         │
@@ -45,7 +46,8 @@ PostgreSQL + pgvector        OpenAI API
 | Fichier | Rôle |
 |---|---|
 | `SupportApp.jsx` | Interface client (chat, catalogue, accès conseiller) |
-| `SupportWorkspace.jsx` | Espace conseiller (conversations, connaissances, dashboard) |
+| `SupportWorkspace.jsx` | Espace conseiller (conversations, révision et actions) |
+| `Dashboard.jsx` | Indicateurs et visualisations des données réelles |
 | `MessageList.jsx` | Affichage des messages avec sources et confidence |
 | `api.js` | Client HTTP + labels |
 
@@ -70,7 +72,7 @@ PostgreSQL + pgvector        OpenAI API
 4. Si escalade :
    - Conseiller claim → status 'human'
    - Conseiller reply / resolve / resume
-   - Si resolve : extraction de connaissance (background)
+   - Si resolve : sauvegarde transactionnelle puis proposition de connaissance
 ```
 
 ## Modes de fonctionnement
@@ -81,3 +83,12 @@ PostgreSQL + pgvector        OpenAI API
 | `AGENT_MODE` | `rag` | Agent OpenAI + RAG + tool calling |
 | `STORAGE_MODE` | `memory` | Tout en mémoire (pas de DB requise) |
 | `STORAGE_MODE` | `postgres` | PostgreSQL persistant |
+
+Le mode RAG exige PostgreSQL. Compose utilise PostgreSQL même si la démo Node
+locale choisit la mémoire. En mode démo, les connaissances validées sont retrouvées
+lexicalement ; le mode RAG utilise pgvector. L’identité client vient de la
+configuration du serveur, pas du texte d’un message ou du champ channel.
+
+Le frontend passe par un proxy `/api` en développement et par Nginx dans Docker.
+Les appels n8n sont des appels REST authentifiés. Les modèles de notification
+nécessitent un fournisseur sortant configuré et ne livrent pas de message seuls.

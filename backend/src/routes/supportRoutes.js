@@ -31,7 +31,7 @@ export function createSupportRouter(service, { demoMode = true, customerKey, adm
     const states = await service.store.listConversations();
     res.json({ conversations: await Promise.all(states.map(async (state) => ({
       id: state.id, status: state.status, assignedTo: state.assignedTo, escalation: state.escalation,
-      updatedAt: state.updatedAt, preview: state.messages.at(-1)?.content || '',
+      updatedAt: state.updatedAt, preview: state.messages.filter((message) => message.role === 'user').at(-1)?.content || state.messages.at(-1)?.content || '',
       customer: await service.store.customer(state.customerId)
     }))) });
   }));

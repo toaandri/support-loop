@@ -5,6 +5,9 @@
 **/dist/
 **/.vite/
 coverage/
+backups/
+__pycache__/
+*.pyc
 *.log
 npm-debug.log*
 

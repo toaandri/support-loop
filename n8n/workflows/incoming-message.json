@@ -5,29 +5,46 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "support-loop/incoming-message",
-        "responseMode": "responseNode"
+        "responseMode": "responseNode",
+        "authentication": "headerAuth"
       },
       "id": "incoming-webhook",
       "name": "Incoming Message Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [260, 300]
+      "position": [
+        260,
+        300
+      ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "={{$env.SUPPORT_LOOP_BACKEND_URL || 'http://backend:3000'}}/api/chat",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "x-customer-key", "value": "={{$env.CUSTOMER_API_KEY || ''}}" }] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-customer-key",
+              "value": "={{$env.CUSTOMER_API_KEY || ''}}"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"conversationId\": $json.body.conversationId || \"n8n-demo\",\n  \"message\": $json.body.message,\n  \"channel\": $json.body.channel || \"n8n\"\n}"
+        "jsonBody": "={{ { conversationId: $json.body.conversationId || 'n8n-demo', message: $json.body.message, channel: $json.body.channel || 'n8n' } }}",
+        "options": {
+          "timeout": 180000
+        }
       },
       "id": "call-backend-chat",
       "name": "Call SupportLoop Backend",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [520, 300]
+      "position": [
+        520,
+        300
+      ]
     },
     {
       "parameters": {
@@ -38,16 +55,37 @@
       "name": "Return Agent Response",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [780, 300]
+      "position": [
+        780,
+        300
+      ]
     }
   ],
   "connections": {
     "Incoming Message Webhook": {
-      "main": [[{ "node": "Call SupportLoop Backend", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Call SupportLoop Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Call SupportLoop Backend": {
-      "main": [[{ "node": "Return Agent Response", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Return Agent Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "settings": { "executionOrder": "v1" }
+  "settings": {
+    "executionOrder": "v1"
+  }
 }

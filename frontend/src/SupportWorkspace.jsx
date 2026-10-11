@@ -4,10 +4,9 @@ import { api, statusLabels, reasonLabels, money } from './api.js';
 import MessageList from './MessageList.jsx';
 import Dashboard from './Dashboard.jsx';
 
-// ─── Dashboard ──────────────────────────────────────────────────────────────
 const knowledgeStatusLabels = { new: 'Nouvelle', review: 'En révision', approved: 'Approuvée', rejected: 'Rejetée', active: 'Active' };
 
-function KnowledgeReview({ apiKey }) {
+function KnowledgeReview({ apiKey, onUnauthorized }) {
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState('');
@@ -26,7 +25,7 @@ function KnowledgeReview({ apiKey }) {
       try {
         const data = await request(`/knowledge${filter ? `?status=${filter}` : ''}`);
         if (active) { setRows(data.knowledge); setError(''); }
-      } catch (err) { if (active) setError(err.message); }
+      } catch (err) { if (active) { setError(err.message); if (err.status === 401) onUnauthorized(err.message); } }
     }
     load();
     const interval = setInterval(load, 5000);
@@ -80,7 +79,7 @@ function KnowledgeReview({ apiKey }) {
         <aside className="queue">
           {!rows.length ? <p className="muted queue-empty">Aucune connaissance.</p> : null}
           {rows.filter((row) => `${row.question} ${row.human_answer} ${row.extracted_rule?.intent || ''}`.toLowerCase().includes(query.toLowerCase())).map((row) => (
-            <button key={row.id}
+            <button key={row.id} data-knowledge-id={row.id}
               className={`queue-row ${selected?.id === row.id ? 'selected' : ''}`}
               onClick={() => { setSelected(row); setEditing(false); setError(''); }}>
               <strong>{row.extracted_rule?.intent || 'Réponse à valider'}</strong>
@@ -152,7 +151,6 @@ function KnowledgeReview({ apiKey }) {
   );
 }
 
-// ─── Main Workspace ──────────────────────────────────────────────────────────
 export default function SupportWorkspace({ demoMode, loading, tab = 'dashboard', onTabChange }) {
   const [key, setKey] = useState('');
   const [keyDraft, setKeyDraft] = useState('');
@@ -237,10 +235,10 @@ export default function SupportWorkspace({ demoMode, loading, tab = 'dashboard',
         }}><LogOut size={17} /></button>
       </div> : null}
 
-      {tab === 'dashboard' ? <Dashboard apiKey={key} onKnowledge={() => setTab('knowledge')} onSelect={(id) => {
+      {tab === 'dashboard' ? <Dashboard apiKey={key} onUnauthorized={(message) => { setError(message); setConnected(false); }} onKnowledge={() => setTab('knowledge')} onSelect={(id) => {
         setSelected(id); setDetail(null); setReply(''); setFilter('all'); setTab('conversations');
       }} /> : null}
-      {tab === 'knowledge' ? <KnowledgeReview apiKey={key} /> : null}
+      {tab === 'knowledge' ? <KnowledgeReview apiKey={key} onUnauthorized={(message) => { setError(message); setConnected(false); }} /> : null}
 
       {tab === 'conversations' ? (
         <section className="support-workspace">
@@ -278,7 +276,7 @@ export default function SupportWorkspace({ demoMode, loading, tab = 'dashboard',
                 return <>
                   {!visible.length ? <p className="muted queue-empty">Aucune conversation.</p> : null}
                   {visible.map((row) => (
-                    <button className={`queue-row ${selected === row.id ? 'selected' : ''}`} key={row.id}
+                    <button className={`queue-row ${selected === row.id ? 'selected' : ''}`} key={row.id} data-conversation-id={row.id}
                       onClick={() => { setSelected(row.id); setDetail(null); setReply(''); setError(''); }}>
                       <strong>{row.customer?.name || row.id}</strong>
                       <span className={`badge ${row.status}`}>{statusLabels[row.status]}</span>

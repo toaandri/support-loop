@@ -1,27 +1,28 @@
 services:
   backend:
-    image: node:20-alpine
-    working_dir: /app
-    command: sh -c "npm install && npm run dev"
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
     environment:
       PORT: 3000
+      HOST: 0.0.0.0
       AGENT_MODE: ${AGENT_MODE:-demo}
-      STORAGE_MODE: ${STORAGE_MODE:-postgres}
+      STORAGE_MODE: postgres
       DEMO_MODE: ${DEMO_MODE:-true}
       CUSTOMER_API_KEY: ${CUSTOMER_API_KEY:-}
       SUPPORT_ADMIN_KEY: ${SUPPORT_ADMIN_KEY:-}
       SUPPORT_CUSTOMER_ID: ${SUPPORT_CUSTOMER_ID:-customer-demo}
       SUPPORT_AGENT_NAME: ${SUPPORT_AGENT_NAME:-Support}
-      DATABASE_URL: postgresql://supportloop:supportloop@postgres:5432/supportloop
+      DATABASE_URL: postgresql://supportloop:${POSTGRES_PASSWORD:-supportloop}@postgres:5432/supportloop
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
       OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-gpt-4.1-mini}
       RAG_MIN_SIMILARITY: ${RAG_MIN_SIMILARITY:-0.35}
+      KNOWLEDGE_DIRECTORY: /knowledge/demo
     ports:
-      - "3000:3000"
+      - "127.0.0.1:${BACKEND_PORT:-3000}:3000"
     volumes:
-      - ./backend:/app
-      - ./database:/database:ro
       - ./knowledge:/knowledge:ro
     depends_on:
       postgres:
@@ -29,10 +30,11 @@ services:
 
   postgres:
     image: pgvector/pgvector:pg16
+    restart: unless-stopped
     environment:
       POSTGRES_DB: supportloop
       POSTGRES_USER: supportloop
-      POSTGRES_PASSWORD: supportloop
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-supportloop}
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-55432}:5432"
     volumes:
@@ -47,30 +49,36 @@ services:
       retries: 10
 
   frontend:
-    image: node:20-alpine
-    working_dir: /app
-    command: sh -c "npm install && npm run dev"
-    environment:
-      VITE_API_BASE_URL: http://localhost:3000
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
     ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
   n8n:
-    image: n8nio/n8n:latest
+    image: n8nio/n8n:2
+    profiles: ["automation"]
+    restart: unless-stopped
     environment:
       SUPPORT_LOOP_BACKEND_URL: http://backend:3000
       CUSTOMER_API_KEY: ${CUSTOMER_API_KEY:-}
-      N8N_SECURE_COOKIE: false
+      SUPPORT_ADMIN_KEY: ${SUPPORT_ADMIN_KEY:-}
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      N8N_SECURE_COOKIE: "false"
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Europe/Paris}
     ports:
-      - "5678:5678"
+      - "127.0.0.1:${N8N_PORT:-5678}:5678"
     volumes:
-      - ./n8n/workflows:/workflows
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/workflows:ro
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   postgres_data:
+  n8n_data:

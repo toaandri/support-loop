@@ -43,7 +43,7 @@ Vecteur requête
     ▼ knowledgeStore.search(embedding, { minSimilarity: 0.35, limit: 4 })
 Chunks pertinents (cosine similarity ≥ seuil)
     │
-    ▼ openaiProvider.answer({ question, history, sources })
+    ▼ openaiProvider.runTools() avec search_knowledge_base
 Réponse citée ([1], [2], ...)
 ```
 
@@ -65,6 +65,15 @@ knowledge_chunks (
 Les connaissances validées par les admins (statut `active`) sont également indexées
 dans `knowledge_chunks` via `knowledgeStore.replaceDocument()`, avec un `source` du type
 `learned/<uuid>.md`. Elles sont donc interrogées exactement comme les documents statiques.
+
+L’agent utilise la boucle d’outils (`supportAgent.js`) ; `ragAgent.js` est le
+composant simple de recherche/réponse, conservé et testé. En démo, aucune
+recherche sémantique n’est effectuée : les politiques sont déterministes et
+les connaissances validées sont retrouvées lexicalement.
+
+Une indexation en échec laisse la proposition au statut `approved`, relançable.
+Les documents supprimés du disque ne sont pas automatiquement retirés de la base.
+Conserver un même répertoire racine pour stabiliser les noms de sources.
 
 ## Documents de démo
 

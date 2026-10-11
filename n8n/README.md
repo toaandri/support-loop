@@ -1,233 +1,89 @@
-# SupportLoop — n8n Workflows
+# Orchestration n8n
 
-## Vue d'ensemble
+n8n complète le backend avec des webhooks et des schedules. Le chat web et la
+boucle d’apprentissage fonctionnent aussi sans n8n.
 
-n8n est le moteur d'orchestration de SupportLoop. Il ne contient pas la logique
-métier (elle est dans le backend Node.js), mais sert de pont entre les canaux
-entrants, le backend, et les intégrations externes (email, Slack, webhooks).
+## Démarrer
 
-**Règle fondamentale :** n8n ne doit jamais accéder directement à PostgreSQL.
-Toutes les interactions passent par l'API REST du backend.
+```bash
+docker compose --profile automation up -d
+```
 
-## Variables d'environnement n8n
+Ouvrir `http://localhost:5678`. La configuration n8n persiste dans `n8n_data`.
+Importer les fichiers de `workflows/` avec **Import from file**.
 
-| Variable | Description | Exemple |
-|---|---|---|
-| `SUPPORT_LOOP_BACKEND_URL` | URL du backend (interne Docker) | `http://backend:3000` |
-| `CUSTOMER_API_KEY` | Clé d'accès routes client | `your-customer-key` |
-| `SUPPORT_ADMIN_KEY` | Clé d'accès routes conseiller/admin | `your-admin-key` |
+## Configuration obligatoire des webhooks
 
-En Docker Compose, ces variables sont transmises automatiquement depuis `.env`.
+Chaque webhook utilise **Header Auth**. Créer un credential avec, par exemple,
+le nom d’en-tête `x-webhook-key` et une valeur aléatoire. Associer ce credential
+à chaque nœud Webhook puis publier/activer le workflow. Les credentials ne sont
+jamais inclus dans les fichiers JSON du dépôt.
 
-## Importer un workflow
+L’appelant doit transmettre cette clé. La clé webhook est distincte des clés
+backend client/conseiller ; elle empêche un appelant externe de bénéficier des
+permissions du workflow sans authentification. Restreindre les webhooks admin
+à l’équipe ou au réseau interne.
 
-1. Ouvrir n8n (`http://localhost:5678`)
-2. Menu **Workflows** → **Import from file**
-3. Sélectionner le fichier `.json` désiré
-4. Activer le workflow (toggle en haut à droite)
+## Variables côté n8n
+
+| Variable | Usage |
+|---|---|
+| `SUPPORT_LOOP_BACKEND_URL` | `http://backend:3000` dans Compose |
+| `CUSTOMER_API_KEY` | Routes client : `x-customer-key` |
+| `SUPPORT_ADMIN_KEY` | Routes conseiller : `x-support-key` |
+| `GENERIC_TIMEZONE` | Fuseau des schedules, Europe/Paris par défaut |
+
+Compose transmet les deux clés. Les workflows fournis lisent les variables
+d’environnement ; cette instance locale autorise cette lecture avec
+`N8N_BLOCK_ENV_ACCESS_IN_NODE=false`. Sur une instance partagée, utiliser des
+credentials HTTP dédiés pour remplacer ces expressions et conserver l’accès aux
+variables bloqué. Le HTTP local explique `N8N_SECURE_COOKIE=false` ; activer les
+cookies sécurisés si l’instance est exposée en HTTPS.
 
 ## Workflows disponibles
 
-### `incoming-message.json` ⭐ Principal
-
-Point d'entrée pour tout message entrant via webhook externe.
-
-```
-POST /webhook/support-loop/incoming-message
-    │  { conversationId, message, channel }
-    ▼
-POST /api/chat  →  réponse agent + statut
-```
-
-Utilisation : relier ce webhook à votre canal (formulaire web, email, etc.).
-
----
-
-### `agent-router.json`
-
-Classifie l'intention d'un message avant de le passer au backend.
-Détecte : `order_tracking`, `return_refund`, `stock_inquiry`, `create_ticket`,
-`human_request`, `general`.
-
-```
-POST /webhook/support-loop/route
-    │  { conversationId, message, channel }
-    ▼
-classify intent → POST /api/chat
-```
-
----
-
-### `knowledge-search.json`
-
-Expose la Knowledge Base comme endpoint de recherche depuis n8n.
-
-```
-POST /webhook/support-loop/knowledge-search
-    │  { query }
-    ▼
-POST /api/chat (canal n8n-search) → { answer, sources, confidence }
-```
-
----
-
-### `customer-data-enrichment.json`
-
-Enrichit un profil client en combinant données client et commandes.
-
-```
-POST /webhook/support-loop/enrich
-    ▼
-GET /api/customer + GET /api/orders → profil enrichi
-```
-
----
-
-### `confidence-check.json`
-
-Évalue si un score de confiance dépasse le seuil configuré.
-
-```
-POST /webhook/support-loop/confidence
-    │  { confidence, needsHuman }
-    ▼
-GET /api/support/settings → { shouldEscalate, reason }
-```
-
----
-
-### `human-escalation.json`
-
-Notifie l'équipe quand une conversation passe en statut `waiting`.
-
-```
-POST /webhook/support-loop/escalation
-    │  { conversationId, status }
-    ▼
-GET /api/support/conversations/:id → contexte complet
-→ [Ajouter nœud Email/Slack ici]
-```
-
----
-
-### `human-learning.json`
-
-Intercepte les résolutions et vérifie si une nouvelle connaissance a été extraite.
-
-```
-POST /webhook/support-loop/human-learning
-    │  { action: "resolve", conversationId }
-    ▼
-GET /api/support/knowledge?status=new → entrées récentes
-```
-
----
-
-### `knowledge-review-reminder.json`
-
-Rappel quotidien (9h) pour les connaissances en attente de validation.
-
-```
-Schedule: chaque jour à 9h
-    ▼
-GET /api/support/knowledge?status=new
-→ [Ajouter nœud Email/Slack si count > 0]
-```
-
----
-
-### `knowledge-ingestion.json`
-
-Déclenche manuellement une réingestion des documents de la Knowledge Base.
-
-```
-POST /webhook/support-loop/ingest
-    ▼
-exécute: node scripts/ingestKnowledge.js /knowledge/demo
-```
-
-⚠️ Nécessite que n8n soit sur le même hôte que le backend ou ait accès au volume.
-
----
-
-### `notifications.json`
-
-Hub de notifications sortantes. Route les événements vers les canaux appropriés.
-
-```
-POST /webhook/support-loop/notify
-    │  { event: "escalation"|"resolved"|"knowledge_approved", ...payload }
-    ▼
-route → [nœuds Email/Slack/HTTP à configurer]
-```
-
----
-
-### `analytics.json`
-
-Snapshot analytique quotidien (8h).
-
-```
-Schedule: chaque jour à 8h
-    ▼
-GET /api/support/stats → calcul métriques
-→ [Ajouter nœud pour archiver ou envoyer]
-```
-
----
-
-### `error-handling.json`
-
-Centralise la gestion des erreurs. À configurer comme **Error Workflow global**
-dans les paramètres n8n (Settings → Error Workflow).
-
-```
-Triggered on workflow error
-    ▼
-log → is critical? → [Ajouter nœud alerte si critique]
-```
-
-## Connexion backend — référence des routes utilisées
-
-| Workflow | Méthode | Route |
+| Fichier | Déclencheur | Comportement |
 |---|---|---|
-| incoming-message | POST | `/api/chat` |
-| agent-router | POST | `/api/chat` |
-| knowledge-search | POST | `/api/chat` |
-| customer-data-enrichment | GET | `/api/customer`, `/api/orders` |
-| confidence-check | GET | `/api/support/settings` |
-| human-escalation | GET | `/api/support/conversations/:id` |
-| human-learning | GET | `/api/support/knowledge?status=new` |
-| knowledge-review-reminder | GET | `/api/support/knowledge?status=new` |
-| analytics | GET | `/api/support/stats` |
+| `incoming-message.json` | POST `support-loop/incoming-message` | Corps `{ conversationId, message, channel }` → `/api/chat` → réponse |
+| `agent-router.json` | POST `support-loop/route` | Classification locale de l’intention puis appel chat |
+| `knowledge-search.json` | POST `support-loop/knowledge-search` | `{ query }` → agent → réponse et sources ; crée une conversation |
+| `customer-data-enrichment.json` | POST `support-loop/enrich` | Profil et commandes du client configuré |
+| `confidence-check.json` | POST `support-loop/confidence` | `{ confidence, needsHuman }` → comparaison au seuil, sans modifier une conversation |
+| `human-escalation.json` | POST `support-loop/escalation` | `{ conversationId }` → contexte de transfert à intégrer à une notification |
+| `human-learning.json` | POST `support-loop/human-learning` | `{ action: "resolve" }` → liste des connaissances récentes ; pas de résolution automatique |
+| `knowledge-review-reminder.json` | Schedule quotidien | Résumé des nouvelles propositions à relier à votre canal |
+| `knowledge-ingestion.json` | POST `support-loop/ingest` | `/api/support/ingest` avec clé admin ; exige le mode RAG |
+| `notifications.json` | POST `support-loop/notify` | Prépare les événements, adaptateurs sortants à configurer |
+| `analytics.json` | Schedule quotidien | Snapshot de statistiques à stocker/envoyer selon vos besoins |
+| `error-handling.json` | Error Trigger | Contexte d’erreur à relier au canal de supervision |
 
-## Architecture
+En production n8n, les chemins sont préfixés par `/webhook/`. Les URL de test
+utilisent `/webhook-test/` pendant l’écoute manuelle.
 
+Exemple d’appel après activation :
+
+```bash
+curl -X POST http://localhost:5678/webhook/support-loop/incoming-message \
+  -H 'Content-Type: application/json' \
+  -H 'x-webhook-key: YOUR_WEBHOOK_KEY' \
+  -d '{"conversationId":"n8n-example","message":"Stock PRD-001 ?","channel":"n8n"}'
 ```
-Canal externe (web / email / WhatsApp)
-        │
-        POST /webhook/support-loop/incoming-message
-        │
-       n8n
-        │
-        POST /api/chat  ──────────────────────────────────────────────────┐
-        │                                                                  │
-   Backend Node.js                                                         │
-        │                                                                  │
-        ├── supportService.chat()                                          │
-        │       └── agent IA + tool calling + escalade                    │
-        │                                                                  │
-        └── supportService.action()                                        │
-                └── claim / reply / resolve / resume                       │
-                        └── resolve → _extractAndStore() → learned_knowledge
-                                                                           │
-                                                    GET /api/support/knowledge
-                                                           │
-                                                   n8n human-learning / knowledge-review-reminder
-                                                           │
-                                                   Interface admin (Connaissances)
-                                                           │
-                                                   POST /api/support/knowledge/:id/approve
-                                                           │
-                                                   knowledgeStore.replaceDocument() → pgvector
-```
+
+## Périmètre réel
+
+Les résolutions dans l’interface déclenchent directement la collecte dans le
+backend ; elles n’appellent pas automatiquement le workflow `human-learning`.
+Le backend n’envoie actuellement aucune notification externe de sa propre initiative.
+Les nœuds de notification indiquent `sent: false` tant qu’un adaptateur réel n’a
+pas été configuré. Les fichiers ne comprennent aucun compte SMTP, WhatsApp,
+Slack ou PagerDuty et aucune livraison de message n’est prétendue.
+
+Les workflows sont importables séparément ; choisir uniquement ceux utiles.
+Dans les paramètres d’un workflow, sélectionner `error-handling` comme Error
+Workflow si souhaité. Les tests du dépôt vérifient les graphes et les expressions
+critiques ; l’envoi vers un fournisseur externe doit être testé après configuration.
+
+La version actuelle représente un seul client configuré côté backend. Ne pas
+connecter plusieurs clients à la même clé en supposant que leur identité sera
+inférée depuis les messages. Ajouter une authentification liée au client pour
+un réel service multicanal/multi-utilisateur.

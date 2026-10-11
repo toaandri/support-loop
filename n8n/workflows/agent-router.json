@@ -5,13 +5,17 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "support-loop/route",
-        "responseMode": "responseNode"
+        "responseMode": "responseNode",
+        "authentication": "headerAuth"
       },
       "id": "router-webhook",
       "name": "Router Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [260, 300]
+      "position": [
+        260,
+        300
+      ]
     },
     {
       "parameters": {
@@ -21,23 +25,39 @@
       "name": "Classify Intent",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [520, 300]
+      "position": [
+        520,
+        300
+      ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "={{$env.SUPPORT_LOOP_BACKEND_URL || 'http://backend:3000'}}/api/chat",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "x-customer-key", "value": "={{ $env.CUSTOMER_API_KEY || '' }}" }] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-customer-key",
+              "value": "={{ $env.CUSTOMER_API_KEY || '' }}"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"conversationId\": $json.conversationId || \"n8n-router\",\n  \"message\": $json.message,\n  \"channel\": $json.channel || \"n8n\",\n  \"intent\": $json.intent\n}"
+        "jsonBody": "={{ { conversationId: $json.conversationId || 'n8n-router', message: $json.message, channel: $json.channel || 'n8n' } }}",
+        "options": {
+          "timeout": 180000
+        }
       },
       "id": "call-backend",
       "name": "Call Backend Agent",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [780, 300]
+      "position": [
+        780,
+        300
+      ]
     },
     {
       "parameters": {
@@ -48,20 +68,49 @@
       "name": "Router Response",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1040, 300]
+      "position": [
+        1040,
+        300
+      ]
     }
   ],
   "connections": {
     "Router Webhook": {
-      "main": [[{ "node": "Classify Intent", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Classify Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Classify Intent": {
-      "main": [[{ "node": "Call Backend Agent", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Call Backend Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Call Backend Agent": {
-      "main": [[{ "node": "Router Response", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Router Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "settings": { "executionOrder": "v1" },
+  "settings": {
+    "executionOrder": "v1"
+  },
   "notes": "Classifie l'intention d'un message entrant (order_tracking, return_refund, stock_inquiry, create_ticket, human_request, general) avant de le passer au backend. La classification est basée sur des règles simples ; en mode RAG, le LLM du backend effectue une classification plus précise. Ce workflow peut être étendu pour router vers des agents spécialisés."
 }

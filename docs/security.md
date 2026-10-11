@@ -26,11 +26,12 @@ usurpation d'identité via le champ message.
 ## Garde-fous des tools
 
 - Liste blanche stricte de 6 tools (`supportToolDefinitions`)
-- Budget d'appels : max 8 calls par conversation
+- Budget d’appels : max 8 appels par message et 5 tours de modèle
 - Validation des arguments : type string, non vide, max 500 caractères
 - Création de ticket conditionnelle : le message doit contenir les mots clés appropriés
 - Ownership des commandes : `get_order` vérifie que la commande appartient au client
-- Actions sensibles (remboursement, annulation, email) bloquées par le prompt système
+- Actions sensibles (remboursement, annulation) transférées par des règles backend ; aucun outil ne les exécute
+- Aucun outil d’envoi d’email n’est exposé au modèle
 
 ## Prompts système
 
@@ -44,6 +45,13 @@ Le prompt du LLM inclut explicitement :
 Rate limiting in-memory par IP :
 - `/api/chat` : 30 requêtes / minute
 - `/api/support/knowledge` : 60 requêtes / minute
+- `/api/support/ingest` : 2 requêtes / minute
+
+Les réponses 429 incluent `Retry-After`. Ces limites sont locales au processus.
+La stack fournie exécute un backend unique et ne fait pas confiance à un en-tête
+`X-Forwarded-For` fourni par l’appelant. Derrière Nginx, les clients partagent
+son IP pour les limites. Ajouter une politique `trust proxy` restrictive et un
+store partagé avant une montée en charge.
 
 Configurable dans `backend/src/app.js` via `rateLimit({ windowMs, max })`.
 
@@ -52,7 +60,7 @@ Configurable dans `backend/src/app.js` via `rateLimit({ windowMs, max })`.
 - Timeout OpenAI : 30 secondes par requête (`AbortSignal.timeout(30000)`)
 - Retry automatique sur codes 429, 500, 502, 503, 504
 - Backoff exponentiel : 1s, 2s, 4s avec ±10% de jitter
-- Max 3 tentatives configurables via `maxRetries` dans `createOpenAIProvider`
+- Une tentative initiale et au maximum 3 retries, configurables via `maxRetries`
 
 ## Logs structurés
 
@@ -85,3 +93,24 @@ Le LLM ne reçoit jamais :
 - Les IDs internes de la base de données (sauf ce qui est nécessaire pour les tools)
 - Les données d'autres clients
 - Le schéma complet de la base de données
+
+## Révision et déploiement
+
+Les réponses humaines sont des propositions ; elles doivent être vérifiées et
+débarrassées des informations propres au client avant activation. Une entrée
+validée est immuable dans l’API. Un échec d’indexation ne la marque pas active.
+
+Node local écoute sur loopback par défaut. Les ports Compose sont liés à
+localhost. Le frontend reçoit seulement les clés saisies par son utilisateur,
+en mémoire ; aucune clé admin ou OpenAI n’est intégrée aux fichiers statiques.
+Le CORS est désactivé par défaut pour les appels directs inter-origines ;
+`CORS_ORIGIN` définit une liste explicite si elle est nécessaire.
+
+Les webhooks n8n exigent des credentials Header Auth non inclus dans Git. La
+configuration locale autorise la lecture des variables d’environnement par n8n
+pour les exemples. Sur une instance partagée, utiliser des credentials dédiés.
+
+Ce projet ne fournit pas d’authentification multi-utilisateur. Avant l’emploi
+avec des données réelles, ajouter l’identité par utilisateur, HTTPS, des règles
+de conservation, une revue des données envoyées au fournisseur et un suivi de
+la disponibilité. Le score de confiance n’est pas une garantie de réponse.

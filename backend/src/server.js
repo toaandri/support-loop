@@ -11,6 +11,7 @@ const envFile = fileURLToPath(new URL('../../.env', import.meta.url));
 if (existsSync(envFile)) process.loadEnvFile(envFile);
 
 const port = Number(process.env.PORT || 3000);
+const host = process.env.HOST || '127.0.0.1';
 const mode = process.env.AGENT_MODE || 'demo';
 if (!['mock', 'demo', 'rag'].includes(mode)) throw new Error('AGENT_MODE must be demo, mock or rag.');
 const storageMode = process.env.STORAGE_MODE || (mode === 'rag' ? 'postgres' : 'memory');
@@ -36,7 +37,7 @@ const app = createApp({ supportService, access: { mode, demoMode,
   customerId: process.env.SUPPORT_CUSTOMER_ID || 'customer-demo', customerKey: process.env.CUSTOMER_API_KEY,
   adminKey: process.env.SUPPORT_ADMIN_KEY, agentName: process.env.SUPPORT_AGENT_NAME || 'Support' } });
 
-const server = app.listen(port, () => {
+const server = app.listen(port, host, () => {
   logger.info('Server started', { port, mode, storageMode, version: 8 });
 });
 
