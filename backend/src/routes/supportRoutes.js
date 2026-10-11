@@ -41,6 +41,8 @@ export function createSupportRouter(service, { demoMode = true, customerKey, adm
       orders: await service.store.orders(conversation.customerId), tickets: await service.store.tickets(conversation.customerId) });
   }));
   router.get('/support/stats', wrap(async (req, res) => res.json(await service.store.stats())));
+  router.post('/support/ingest', wrap(async (req, res) => res.json({ documents: await service.ingestDocuments() })));
+  router.post('/support/conversations/:id/learn', wrap(async (req, res) => res.json(await service.retryLearning(req.params.id))));
 
   router.get('/support/knowledge', wrap(async (req, res) => {
     const { status } = req.query;
@@ -54,12 +56,19 @@ export function createSupportRouter(service, { demoMode = true, customerKey, adm
   router.post('/support/knowledge/:id/approve', wrap(async (req, res) => {
     res.json(await service.approveKnowledge(req.params.id, { reviewedBy: agentName }));
   }));
+  router.post('/support/knowledge/:id/review', wrap(async (req, res) => res.json(await service.reviewKnowledge(req.params.id))));
   router.post('/support/knowledge/:id/reject', wrap(async (req, res) => {
     res.json(await service.rejectKnowledge(req.params.id, { reviewedBy: agentName }));
   }));
   router.patch('/support/knowledge/:id', wrap(async (req, res) => {
     const { extracted_rule, human_answer } = req.body || {};
     if (human_answer !== undefined && !text(human_answer, 2000)) throw httpError(400, 'human_answer must be a non-empty string (max 2000).');
+    if (extracted_rule !== undefined && extracted_rule !== null) {
+      if (typeof extracted_rule !== 'object' || Array.isArray(extracted_rule) ||
+          !['intent', 'condition', 'resolution'].every((field) => text(extracted_rule[field], 2000)) ||
+          Object.keys(extracted_rule).some((field) => !['intent', 'condition', 'resolution', 'notes'].includes(field)) ||
+          (extracted_rule.notes != null && !text(extracted_rule.notes, 2000))) throw httpError(400, 'Invalid extracted rule.');
+    }
     res.json(await service.editKnowledge(req.params.id, { extracted_rule, human_answer }));
   }));
 

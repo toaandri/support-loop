@@ -1,0 +1,19 @@
+{
+  "name": "support-loop",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.16" },
+  "scripts": {
+    "setup": "npm ci --prefix backend && npm ci --prefix frontend",
+    "dev": "node scripts/dev.js",
+    "start": "node backend/src/server.js",
+    "test": "npm test --prefix backend",
+    "build": "npm run build --prefix frontend",
+    "check": "npm test && npm run build",
+    "evaluate": "node backend/scripts/evaluateAgent.js",
+    "demo:seed": "node scripts/seedDemo.js",
+    "test:e2e": "python scripts/capture_readme.py --verify-only",
+    "docs:media": "python scripts/capture_readme.py"
+  }
+}

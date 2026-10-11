@@ -2,8 +2,16 @@ import { randomUUID } from 'node:crypto';
 import { appendMessage, httpError } from './supportStore.js';
 import { createToolExecutor } from './agentTools.js';
 import { createSupportAgent, escalationReason } from './supportAgent.js';
+import { logger } from '../middleware/logger.js';
+import { ingestKnowledge } from './documentIngestion.js';
 
-export function createSupportService({ store, provider, knowledgeStore, minSimilarity, agent = createSupportAgent(provider) }) {
+export function createSupportService({ store, provider, knowledgeStore, knowledgeDirectory, minSimilarity, agent = createSupportAgent(provider) }) {
+  const pendingKnowledge = new Map();
+  async function knowledgeAction(id, work) {
+    if (pendingKnowledge.has(id)) throw httpError(409, 'Knowledge operation already in progress.');
+    pendingKnowledge.set(id, true);
+    try { return await work(); } finally { pendingKnowledge.delete(id); }
+  }
   async function escalate(state, repo, reason, confidence, sources = []) {
     const ticket = await repo.createTicket(state.messages.filter((item) => item.role === 'user').at(-1).content.slice(0, 200));
     state.status = 'waiting';
@@ -26,7 +34,7 @@ export function createSupportService({ store, provider, knowledgeStore, minSimil
         let assistantMessage;
         if (reason) assistantMessage = await escalate(state, repo, reason, null);
         else {
-          const executor = createToolExecutor({ state, repo, provider, knowledgeStore, minSimilarity });
+          const executor = createToolExecutor({ state, repo, store, provider, knowledgeStore, minSimilarity });
           try {
             const answer = await agent(message, { history, execute: executor.execute });
             state.traces.push(...executor.traces);
@@ -50,7 +58,7 @@ export function createSupportService({ store, provider, knowledgeStore, minSimil
       });
     },
     async action(id, action, { agentName, content }) {
-      return store.withConversation(id, null, async (state) => {
+      const result = await store.withConversation(id, null, async (state) => {
         if (action === 'claim') {
           if (state.status !== 'waiting') throw httpError(409, 'Conversation is not waiting.');
           state.status = 'human'; state.assignedTo = agentName;
@@ -60,8 +68,6 @@ export function createSupportService({ store, provider, knowledgeStore, minSimil
           else if (action === 'resolve') {
             state.status = 'resolved';
             appendMessage(state, 'system', 'Conversation resolue par le conseiller.', { agentName });
-            // V6 : déclencher l'extraction de connaissance en arrière-plan
-            setImmediate(() => this._extractAndStore(id, state).catch(() => {}));
           } else if (action === 'resume') {
             state.status = 'ai'; state.assignedTo = null; state.escalation = null;
             appendMessage(state, 'system', 'Le support automatique reprend la conversation.', { agentName });
@@ -70,20 +76,37 @@ export function createSupportService({ store, provider, knowledgeStore, minSimil
         state.updatedAt = new Date().toISOString();
         return state;
       }, { existingOnly: true });
+      // Persist the resolution first. Extraction failures never undo a human resolution.
+      if (action === 'resolve') {
+        try { await this._extractAndStore(id, structuredClone(result)); }
+        catch (error) { logger.error('Knowledge extraction failed', { conversationId: id, error: error.message }); }
+      }
+      return result;
     },
 
     // V6 : extrait une connaissance depuis une conversation resolue et la stocke en statut 'new'
     async _extractAndStore(conversationId, state) {
-      if (!provider?.extractKnowledge) return;
+      if (provider && !provider.extractKnowledge) return;
       const userMessages = state.messages.filter((m) => m.role === 'user');
       const humanMessages = state.messages.filter((m) => m.role === 'human');
       if (!userMessages.length || !humanMessages.length) return;
-      const question = userMessages[0].content;
+      const lastResolution = state.messages.findLastIndex((m, index) => m.role === 'system' &&
+        m.content.startsWith('Conversation resolue') && index !== state.messages.length - 1);
+      const cycle = state.messages.slice(lastResolution + 1);
+      const cycleUsers = cycle.filter((m) => m.role === 'user');
+      const cycleHumans = cycle.filter((m) => m.role === 'human');
+      if (!cycleUsers.length || !cycleHumans.length) return;
+      const question = cycleUsers.filter((m) => !/^(merci|bonjour|salut)[!.\s]*$/i.test(m.content))
+        .map((m) => m.content).join('\n').slice(0, 1000) || cycleUsers[0].content;
       const aiAnswerMsg = state.messages.find((m) => m.role === 'assistant' && m.metadata?.source !== 'handoff');
-      const humanAnswer = humanMessages.map((m) => m.content).join('\n');
-      const extractedRule = await provider.extractKnowledge({
-        question, aiAnswer: aiAnswerMsg?.content || null, humanAnswer
-      });
+      const humanAnswer = cycleHumans.map((m) => m.content).join('\n').slice(0, 2000);
+      const existing = await store.listLearnedKnowledge();
+      if (existing.some((entry) => entry.conversation_id === conversationId && entry.human_answer === humanAnswer)) return;
+      let extractedRule = null;
+      if (provider?.extractKnowledge) {
+        try { extractedRule = await provider.extractKnowledge({ question, aiAnswer: aiAnswerMsg?.content || null, humanAnswer }); }
+        catch (error) { logger.warn('Rule extraction unavailable; saving answer for review', { conversationId, error: error.message }); }
+      }
       await store.createLearnedKnowledge({
         id: randomUUID(), conversation_id: conversationId,
         question: question.slice(0, 1000),
@@ -97,8 +120,9 @@ export function createSupportService({ store, provider, knowledgeStore, minSimil
 
     // V6 : approuve une connaissance et l'indexe dans la knowledge base si possible
     async approveKnowledge(id, { reviewedBy, knowledgeStoreRef = knowledgeStore, providerRef = provider } = {}) {
+      return knowledgeAction(id, async () => {
       const entry = await store.getLearnedKnowledge(id);
-      if (!['new', 'review'].includes(entry.status)) throw httpError(409, 'Only new or review entries can be approved.');
+      if (!['new', 'review', 'approved'].includes(entry.status)) throw httpError(409, 'Only pending entries can be approved.');
       const now = new Date().toISOString();
       await store.updateLearnedKnowledge(id, { status: 'approved', reviewed_at: now, reviewed_by: reviewedBy || null });
       // Indexation vectorielle si le provider et le knowledgeStore sont disponibles
@@ -116,27 +140,54 @@ export function createSupportService({ store, provider, knowledgeStore, minSimil
           chunks: [text], embeddings: [embedding]
         });
         await store.updateLearnedKnowledge(id, { status: 'active' });
-      }
+      } else if (!providerRef) await store.updateLearnedKnowledge(id, { status: 'active' });
       return store.getLearnedKnowledge(id);
+      });
     },
 
     async rejectKnowledge(id, { reviewedBy } = {}) {
+      return knowledgeAction(id, async () => {
       const entry = await store.getLearnedKnowledge(id);
       if (!['new', 'review'].includes(entry.status)) throw httpError(409, 'Only new or review entries can be rejected.');
       await store.updateLearnedKnowledge(id, {
         status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: reviewedBy || null
       });
       return store.getLearnedKnowledge(id);
+      });
+    },
+
+    async reviewKnowledge(id) {
+      return knowledgeAction(id, async () => {
+        const entry = await store.getLearnedKnowledge(id);
+        if (entry.status !== 'new') throw httpError(409, 'Only new entries can enter review.');
+        await store.updateLearnedKnowledge(id, { status: 'review' });
+        return store.getLearnedKnowledge(id);
+      });
+    },
+
+    async ingestDocuments() {
+      if (!provider || !knowledgeStore || !knowledgeDirectory) throw httpError(409, 'Document ingestion requires RAG mode.');
+      return knowledgeAction('document-ingestion', async () => ingestKnowledge(knowledgeDirectory, { provider, knowledgeStore }));
+    },
+
+    async retryLearning(id) {
+      const state = await store.conversation(id);
+      if (state.status !== 'resolved') throw httpError(409, 'Resolve the conversation first.');
+      await this._extractAndStore(id, state);
+      return { knowledge: (await store.listLearnedKnowledge()).filter((entry) => entry.conversation_id === id) };
     },
 
     async editKnowledge(id, { extracted_rule, human_answer }) {
-      await store.getLearnedKnowledge(id); // vérifie existence
+      return knowledgeAction(id, async () => {
+      const entry = await store.getLearnedKnowledge(id);
+      if (!['new', 'review'].includes(entry.status)) throw httpError(409, 'Reviewed knowledge is immutable.');
       const patch = {};
       if (extracted_rule !== undefined) patch.extracted_rule = extracted_rule;
       if (human_answer !== undefined) patch.human_answer = human_answer.slice(0, 2000);
       if (!Object.keys(patch).length) throw httpError(400, 'Nothing to update.');
       await store.updateLearnedKnowledge(id, patch);
       return store.getLearnedKnowledge(id);
+      });
     }
   };
 }

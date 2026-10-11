@@ -39,6 +39,8 @@ export async function generateDemoSupportResponse(question, { execute }) {
   if (/^(bonjour|salut|hello|merci)[!.\s]*$/.test(text)) {
     return { content: 'Bonjour. Comment puis-je vous aider ?', confidence: 0.95, needsHuman: false };
   }
+  const learned = await execute('search_knowledge_base', { query: question });
+  if (learned.length) return { content: `${learned[0].content} [1]`, confidence: 0.9, needsHuman: false };
   return { content: 'Votre demande necessite une verification par un conseiller.', confidence: 0.3,
     needsHuman: true, reason: 'missing-knowledge' };
 }

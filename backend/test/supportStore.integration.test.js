@@ -37,6 +37,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('PostgreSQL support persistence'
       })).rejects.toThrow('abort');
       await expect(store.conversation(failedId)).rejects.toMatchObject({ status: 404 });
     } finally {
+      await pool.query('DELETE FROM learned_knowledge WHERE conversation_id = $1', [id]);
       await pool.query('DELETE FROM tickets WHERE conversation_id = $1', [id]);
       await pool.query('DELETE FROM support_conversations WHERE id = $1', [id]);
       await store.close(); await pool.end();

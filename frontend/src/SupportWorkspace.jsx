@@ -1,70 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { RefreshCw, UserCheck, Send, Check, Bot, KeyRound, LogOut, BookOpen, BarChart2, X, Pencil } from 'lucide-react';
+import { RefreshCw, UserCheck, Send, Check, Bot, KeyRound, LogOut, BookOpen, Search, X, Pencil, Eye, ShieldCheck } from 'lucide-react';
 import { api, statusLabels, reasonLabels, money } from './api.js';
 import MessageList from './MessageList.jsx';
+import Dashboard from './Dashboard.jsx';
 
 // ─── Dashboard ──────────────────────────────────────────────────────────────
-function Dashboard({ apiKey }) {
-  const [stats, setStats] = useState(null);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    let active = true;
-    async function refresh() {
-      try {
-        const data = await api('/support/stats', { support: true, key: apiKey });
-        if (active) setStats(data);
-      } catch (err) { if (active) setError(err.message); }
-    }
-    refresh();
-    const interval = setInterval(refresh, 5000);
-    return () => { active = false; clearInterval(interval); };
-  }, [apiKey]);
-
-  const n = (v) => Number(v) || 0;
-  const pct = (a, b) => b > 0 ? `${Math.round((n(a) / n(b)) * 100)}%` : '—';
-
-  if (error) return <p className="error" role="alert">{error}</p>;
-  if (!stats) return <p className="muted" style={{ padding: '24px' }}>Chargement...</p>;
-
-  const total = n(stats.conversations_total);
-  const resolved = n(stats.conversations_resolved);
-  const waiting = n(stats.conversations_waiting);
-  const human = n(stats.conversations_human);
-  const lkTotal = n(stats.learned_knowledge_total);
-  const lkPending = n(stats.learned_knowledge_pending_review);
-  const lkActive = n(stats.learned_knowledge_active);
-
-  return (
-    <div className="dashboard">
-      <h2>Tableau de bord</h2>
-      <div className="kpi-grid">
-        <div className="kpi"><span className="kpi-value">{total}</span><span className="kpi-label">Conversations</span></div>
-        <div className="kpi resolved"><span className="kpi-value">{resolved}</span><span className="kpi-label">Résolues</span></div>
-        <div className="kpi waiting"><span className="kpi-value">{waiting}</span><span className="kpi-label">En attente</span></div>
-        <div className="kpi human"><span className="kpi-value">{human}</span><span className="kpi-label">Avec conseiller</span></div>
-        <div className="kpi"><span className="kpi-value">{pct(resolved, total)}</span><span className="kpi-label">Taux de résolution</span></div>
-        <div className="kpi"><span className="kpi-value">{pct(n(stats.conversations_waiting) + n(stats.conversations_human), total)}</span><span className="kpi-label">Taux d'escalade</span></div>
-        <div className="kpi"><span className="kpi-value">{n(stats.tickets_open)}</span><span className="kpi-label">Tickets ouverts</span></div>
-        <div className="kpi"><span className="kpi-value">{n(stats.tickets_resolved)}</span><span className="kpi-label">Tickets résolus</span></div>
-      </div>
-      <h2 style={{ marginTop: 32 }}>Learning Loop</h2>
-      <div className="kpi-grid">
-        <div className="kpi"><span className="kpi-value">{lkTotal}</span><span className="kpi-label">Connaissances extraites</span></div>
-        <div className="kpi waiting"><span className="kpi-value">{lkPending}</span><span className="kpi-label">En attente de validation</span></div>
-        <div className="kpi resolved"><span className="kpi-value">{lkActive}</span><span className="kpi-label">Actives dans le RAG</span></div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Knowledge Review ────────────────────────────────────────────────────────
 const knowledgeStatusLabels = { new: 'Nouvelle', review: 'En révision', approved: 'Approuvée', rejected: 'Rejetée', active: 'Active' };
 
-function KnowledgeReview({ apiKey, agentKey }) {
+function KnowledgeReview({ apiKey }) {
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(null);
-  const [filter, setFilter] = useState('new');
+  const [filter, setFilter] = useState('');
+  const [query, setQuery] = useState('');
   const [editRule, setEditRule] = useState('');
   const [editAnswer, setEditAnswer] = useState('');
   const [editing, setEditing] = useState(false);
@@ -78,10 +25,12 @@ function KnowledgeReview({ apiKey, agentKey }) {
     async function load() {
       try {
         const data = await request(`/knowledge${filter ? `?status=${filter}` : ''}`);
-        if (active) setRows(data.knowledge);
+        if (active) { setRows(data.knowledge); setError(''); }
       } catch (err) { if (active) setError(err.message); }
     }
     load();
+    const interval = setInterval(load, 5000);
+    return () => { active = false; clearInterval(interval); };
   }, [filter, apiKey]);
 
   async function act(action) {
@@ -91,10 +40,11 @@ function KnowledgeReview({ apiKey, agentKey }) {
       let updated;
       if (action === 'approve') updated = await request(`/knowledge/${selected.id}/approve`, { method: 'POST' });
       else if (action === 'reject') updated = await request(`/knowledge/${selected.id}/reject`, { method: 'POST' });
+      else if (action === 'review') updated = await request(`/knowledge/${selected.id}/review`, { method: 'POST' });
       else if (action === 'save') {
         const patch = {};
         if (editAnswer.trim()) patch.human_answer = editAnswer.trim();
-        try { if (editRule.trim()) patch.extracted_rule = JSON.parse(editRule.trim()); } catch { throw new Error('Règle JSON invalide.'); }
+        try { patch.extracted_rule = editRule.trim() ? JSON.parse(editRule.trim()) : null; } catch { throw new Error('Règle JSON invalide.'); }
         updated = await api(`/support/knowledge/${selected.id}`, { method: 'PATCH', support: true, key: apiKey, body: patch });
       }
       setSelected(updated);
@@ -115,24 +65,25 @@ function KnowledgeReview({ apiKey, agentKey }) {
     <section className="support-workspace">
       <div className="workspace-toolbar">
         <h2>Connaissances apprises</h2>
+        <label className="search-field"><Search size={16} /><input aria-label="Rechercher une connaissance" placeholder="Rechercher…" value={query} onChange={(e) => setQuery(e.target.value)} /></label>
         <select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filtrer par statut">
           <option value="">Toutes</option>
           {Object.entries(knowledgeStatusLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
-        <button className="icon-button secondary" title="Actualiser" onClick={async () => {
-          const data = await request(`/knowledge${filter ? `?status=${filter}` : ''}`);
-          setRows(data.knowledge);
+        <button className="icon-button secondary" title="Actualiser" aria-label="Actualiser les connaissances" onClick={async () => {
+          try { const data = await request(`/knowledge${filter ? `?status=${filter}` : ''}`); setRows(data.knowledge); setError(''); }
+          catch (err) { setError(err.message); }
         }}><RefreshCw size={16} /></button>
       </div>
       {error ? <p className="error" role="alert">{error}</p> : null}
       <div className="support-columns">
         <aside className="queue">
           {!rows.length ? <p className="muted queue-empty">Aucune connaissance.</p> : null}
-          {rows.map((row) => (
+          {rows.filter((row) => `${row.question} ${row.human_answer} ${row.extracted_rule?.intent || ''}`.toLowerCase().includes(query.toLowerCase())).map((row) => (
             <button key={row.id}
               className={`queue-row ${selected?.id === row.id ? 'selected' : ''}`}
               onClick={() => { setSelected(row); setEditing(false); setError(''); }}>
-              <strong>{row.extracted_rule?.intent || 'Sans intention'}</strong>
+              <strong>{row.extracted_rule?.intent || 'Réponse à valider'}</strong>
               <span className={`badge ${row.status === 'active' ? 'resolved' : row.status === 'rejected' ? '' : 'waiting'}`}>
                 {knowledgeStatusLabels[row.status] || row.status}
               </span>
@@ -147,20 +98,22 @@ function KnowledgeReview({ apiKey, agentKey }) {
             <div className="case-workspace">
               <header className="case-header">
                 <div>
-                  <h2>{selected.extracted_rule?.intent || 'Connaissance'}</h2>
+                  <h2>{selected.extracted_rule?.intent || 'Connaissance issue du support'}</h2>
                   <small>{new Date(selected.created_at).toLocaleString('fr-FR')}</small>
                 </div>
                 <span className={`badge ${selected.status === 'active' ? 'resolved' : selected.status === 'rejected' ? '' : 'waiting'}`}>
                   {knowledgeStatusLabels[selected.status] || selected.status}
                 </span>
-                {['new', 'review'].includes(selected.status) ? <>
-                  <button disabled={busy} onClick={() => act('approve')}><Check size={16} />Approuver</button>
-                  <button className="secondary" disabled={busy} onClick={() => act('reject')}><X size={16} />Rejeter</button>
-                  <button className="secondary" disabled={busy} onClick={() => openEdit(selected)}><Pencil size={16} />Éditer</button>
+                {selected.status === 'new' ? <button className="secondary" disabled={busy || editing} onClick={() => act('review')}><Eye size={16} />Réviser</button> : null}
+                {['new', 'review', 'approved'].includes(selected.status) ? <>
+                  <button disabled={busy || editing} onClick={() => act('approve')}><Check size={16} />{selected.status === 'approved' ? 'Réessayer l’indexation' : 'Approuver'}</button>
+                  {selected.status !== 'approved' ? <><button className="secondary" disabled={busy || editing} onClick={() => act('reject')}><X size={16} />Rejeter</button>
+                  <button className="secondary" disabled={busy} onClick={() => openEdit(selected)}><Pencil size={16} />Éditer</button></> : null}
                 </> : null}
               </header>
 
               <div className="knowledge-detail" style={{ overflowY: 'auto', flex: 1, padding: '20px' }}>
+                {selected.status === 'active' ? <div className="knowledge-notice"><ShieldCheck size={16} />Validée et disponible pour les prochaines réponses.</div> : null}
                 <div className="knowledge-section">
                   <h3>Question client</h3>
                   <p className="knowledge-text">{selected.question}</p>
@@ -200,7 +153,7 @@ function KnowledgeReview({ apiKey, agentKey }) {
 }
 
 // ─── Main Workspace ──────────────────────────────────────────────────────────
-export default function SupportWorkspace({ demoMode }) {
+export default function SupportWorkspace({ demoMode, loading, tab = 'dashboard', onTabChange }) {
   const [key, setKey] = useState('');
   const [keyDraft, setKeyDraft] = useState('');
   const [connected, setConnected] = useState(demoMode);
@@ -213,7 +166,8 @@ export default function SupportWorkspace({ demoMode }) {
   const [reply, setReply] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState('conversations');
+  const setTab = onTabChange;
+  const [query, setQuery] = useState('');
   const request = (path, options = {}) => api(`/support${path}`, { ...options, support: true, key });
   useEffect(() => { if (demoMode) setConnected(true); }, [demoMode]);
 
@@ -223,7 +177,7 @@ export default function SupportWorkspace({ demoMode }) {
     async function refresh() {
       try {
         const data = await api('/support/conversations', { support: true, key });
-        if (active) setRows(data.conversations);
+        if (active) { setRows(data.conversations); setError(''); }
       } catch (err) {
         if (active) { setError(err.message); if (err.status === 401) setConnected(false); }
       }
@@ -263,6 +217,7 @@ export default function SupportWorkspace({ demoMode }) {
     finally { setBusy(false); }
   }
 
+  if (loading) return <p className="muted" role="status">Connexion à votre espace…</p>;
   if (!connected) return (
     <form className="access-form" onSubmit={(event) => {
       event.preventDefault(); setKey(keyDraft); setConnected(true); setError('');
@@ -276,23 +231,15 @@ export default function SupportWorkspace({ demoMode }) {
 
   return (
     <section style={{ minHeight: 560 }}>
-      {/* Sous-navigation */}
-      <nav className="view-tabs" aria-label="Espace conseiller" style={{ marginBottom: 0 }}>
-        <button className={tab === 'conversations' ? 'active' : ''} onClick={() => setTab('conversations')}>
-          <UserCheck size={16} />Conversations
-        </button>
-        <button className={tab === 'knowledge' ? 'active' : ''} onClick={() => setTab('knowledge')}>
-          <BookOpen size={16} />Connaissances
-        </button>
-        <button className={tab === 'dashboard' ? 'active' : ''} onClick={() => setTab('dashboard')}>
-          <BarChart2 size={16} />Tableau de bord
-        </button>
+      {!demoMode ? <div className="support-session"><span><ShieldCheck size={14} />Session conseiller</span>
         <button className="icon-button secondary" style={{ marginLeft: 'auto' }} title="Déconnexion" aria-label="Déconnexion" onClick={() => {
           setConnected(false); setKey(''); setKeyDraft(''); setRows([]); setDetail(null);
         }}><LogOut size={17} /></button>
-      </nav>
+      </div> : null}
 
-      {tab === 'dashboard' ? <Dashboard apiKey={key} /> : null}
+      {tab === 'dashboard' ? <Dashboard apiKey={key} onKnowledge={() => setTab('knowledge')} onSelect={(id) => {
+        setSelected(id); setDetail(null); setReply(''); setFilter('all'); setTab('conversations');
+      }} /> : null}
       {tab === 'knowledge' ? <KnowledgeReview apiKey={key} /> : null}
 
       {tab === 'conversations' ? (
@@ -312,6 +259,7 @@ export default function SupportWorkspace({ demoMode }) {
           {error ? <p className="error" role="alert">{error}</p> : null}
           <div className="support-columns">
             <aside className="queue">
+              <label className="search-field queue-search"><Search size={16} /><input aria-label="Rechercher une conversation" placeholder="Rechercher un client, un message…" value={query} onChange={(e) => setQuery(e.target.value)} /></label>
               <div className="queue-toolbar">
                 <select aria-label="Filtrer les conversations" value={filter} onChange={(event) => setFilter(event.target.value)}>
                   <option value="waiting">En attente</option>
@@ -325,7 +273,8 @@ export default function SupportWorkspace({ demoMode }) {
                 }}><RefreshCw size={16} /></button>
               </div>
               {(() => {
-                const visible = rows.filter((row) => filter === 'all' || row.status === filter);
+                const visible = rows.filter((row) => (filter === 'all' || row.status === filter) &&
+                  `${row.id} ${row.customer?.name || ''} ${row.preview}`.toLowerCase().includes(query.toLowerCase()));
                 return <>
                   {!visible.length ? <p className="muted queue-empty">Aucune conversation.</p> : null}
                   {visible.map((row) => (

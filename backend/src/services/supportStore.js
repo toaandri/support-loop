@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
+import { conversationAnalytics } from './analytics.js';
 
 export function httpError(status, message) {
   return Object.assign(new Error(message), { status });
@@ -110,6 +111,7 @@ export function createMemorySupportStore() {
       const allTickets = [...tickets.values()];
       const lk = [...learnedKnowledge.values()];
       return {
+        ...conversationAnalytics(all),
         conversations_total: all.length,
         conversations_resolved: all.filter((c) => c.status === 'resolved').length,
         conversations_waiting: all.filter((c) => c.status === 'waiting').length,
@@ -231,7 +233,8 @@ export function createPostgresSupportStore(connectionString) {
           COUNT(*) FILTER (WHERE status = 'active') AS learned_knowledge_active
           FROM learned_knowledge`)
       ]);
-      return { ...convRow.rows[0], ...ticketRow.rows[0], ...lkRow.rows[0] };
+      const states = (await pool.query('SELECT state FROM support_conversations')).rows.map((row) => row.state);
+      return { ...convRow.rows[0], ...ticketRow.rows[0], ...lkRow.rows[0], ...conversationAnalytics(states) };
     },
     async close() { await pool.end(); }
   };

@@ -24,6 +24,7 @@ export function rateLimit({ windowMs = 60_000, max = 60, keyFn = (req) => req.ip
     const cutoff = now - windowMs;
     const existing = (buckets.get(key) || []).filter((t) => t > cutoff);
     if (existing.length >= max) {
+      res.set('Retry-After', String(Math.ceil((existing[0] + windowMs - now) / 1000)));
       return res.status(429).json({ error: 'Too many requests. Please slow down.' });
     }
     existing.push(now);

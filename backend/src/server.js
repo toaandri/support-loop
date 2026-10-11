@@ -4,12 +4,18 @@ import { createOpenAIProvider } from './services/openaiProvider.js';
 import { createMemorySupportStore, createPostgresSupportStore } from './services/supportStore.js';
 import { createSupportService } from './services/supportService.js';
 import { logger } from './middleware/logger.js';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const envFile = fileURLToPath(new URL('../../.env', import.meta.url));
+if (existsSync(envFile)) process.loadEnvFile(envFile);
 
 const port = Number(process.env.PORT || 3000);
 const mode = process.env.AGENT_MODE || 'demo';
 if (!['mock', 'demo', 'rag'].includes(mode)) throw new Error('AGENT_MODE must be demo, mock or rag.');
 const storageMode = process.env.STORAGE_MODE || (mode === 'rag' ? 'postgres' : 'memory');
 if (!['memory', 'postgres'].includes(storageMode)) throw new Error('STORAGE_MODE must be memory or postgres.');
+if (mode === 'rag' && storageMode !== 'postgres') throw new Error('RAG requires STORAGE_MODE=postgres.');
 if (storageMode === 'postgres' && !process.env.DATABASE_URL) throw new Error('DATABASE_URL is required.');
 const store = storageMode === 'postgres' ? createPostgresSupportStore(process.env.DATABASE_URL) : createMemorySupportStore();
 let knowledgeStore;
@@ -23,7 +29,8 @@ if (mode === 'rag') {
 await store.check();
 const minSimilarity = Number(process.env.RAG_MIN_SIMILARITY || 0.35);
 if (!Number.isFinite(minSimilarity) || minSimilarity < 0 || minSimilarity > 1) throw new Error('Invalid RAG_MIN_SIMILARITY.');
-const supportService = createSupportService({ store, provider, knowledgeStore, minSimilarity });
+const knowledgeDirectory = process.env.KNOWLEDGE_DIRECTORY || fileURLToPath(new URL('../../knowledge/demo', import.meta.url));
+const supportService = createSupportService({ store, provider, knowledgeStore, knowledgeDirectory, minSimilarity });
 const demoMode = process.env.DEMO_MODE ? process.env.DEMO_MODE === 'true' : storageMode === 'memory';
 const app = createApp({ supportService, access: { mode, demoMode,
   customerId: process.env.SUPPORT_CUSTOMER_ID || 'customer-demo', customerKey: process.env.CUSTOMER_API_KEY,
@@ -33,12 +40,13 @@ const server = app.listen(port, () => {
   logger.info('Server started', { port, mode, storageMode, version: 8 });
 });
 
-process.on('uncaughtException', (err) => logger.error('Uncaught exception', { error: err.message, stack: err.stack }));
-process.on('unhandledRejection', (reason) => logger.error('Unhandled rejection', { reason: String(reason) }));
+process.on('uncaughtException', (err) => { logger.error('Uncaught exception', { error: err.message }); process.exit(1); });
+process.on('unhandledRejection', (reason) => { logger.error('Unhandled rejection', { reason: String(reason) }); process.exit(1); });
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, () => {
     logger.info('Shutdown signal received', { signal });
+    setTimeout(() => process.exit(1), 15000).unref();
     server.close(async () => {
       await knowledgeStore?.close();
       await store.close();

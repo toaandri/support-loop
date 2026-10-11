@@ -10,14 +10,22 @@ export function createApp(options = {}) {
   const app = express();
   const store = options.store || createConversationStore();
 
-  app.use(cors());
+  app.disable('x-powered-by');
+  app.use(cors({ origin: process.env.CORS_ORIGIN?.split(',').map((origin) => origin.trim()) || false }));
+  app.use((req, res, next) => {
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Cache-Control', 'no-store');
+    next();
+  });
   app.use(express.json());
   app.use(requestLogger);
   app.use('/api/chat', rateLimit({ windowMs: 60_000, max: 30 }));
   app.use('/api/support/knowledge', rateLimit({ windowMs: 60_000, max: 60 }));
+  app.use('/api/support/ingest', rateLimit({ windowMs: 60_000, max: 2 }));
   app.use('/api', options.supportService ? createSupportRouter(options.supportService, options.access) :
     createChatRouter(store, options.generateResponse));
 
+  app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found.' }));
   app.use((err, req, res, next) => {
     if (res.headersSent) {
       return next(err);

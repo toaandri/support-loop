@@ -1,22 +1,21 @@
 import React, { useEffect, useRef } from 'react';
-import { User, Bot, Headset } from 'lucide-react';
+import { User, Bot, Headset, Sparkles, BookOpen } from 'lucide-react';
 
 export default function MessageList({ messages = [] }) {
   const end = useRef(null);
-  useEffect(() => { end.current?.scrollIntoView({ block: 'nearest' }); }, [messages.length]);
-  return <div className="messages" aria-live="polite">
-    {!messages.length ? <div className="empty-state"><Headset size={32} /><p>Bonjour. Comment pouvons-nous vous aider ?</p></div> : null}
+  useEffect(() => { end.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [messages.length]);
+  return <div className="messages" aria-live="polite" role="log" aria-label="Historique des messages">
+    {!messages.length ? <div className="empty-state"><span className="welcome-icon"><Sparkles size={29} /></span><span className="eyebrow">BIENVENUE CHEZ SUPPORTLOOP</span>
+      <h3>Une question ? On est là.</h3><p>Suivez une commande, consultez nos politiques<br />ou échangez avec un conseiller.</p></div> : null}
     {messages.map((message) => {
       const Icon = message.role === 'user' ? User : message.role === 'human' ? Headset : Bot;
       return <article className={`message ${message.role}`} key={message.id}>
-        <div className="message-author"><Icon size={14} />{message.role === 'user' ? 'Client' : message.role === 'human' ?
-          message.metadata?.agentName || 'Conseiller' : message.role === 'system' ? 'Conversation' : 'SupportLoop'}</div>
+        <div className="message-author"><Icon size={14} />{message.role === 'user' ? 'Vous' : message.role === 'human' ?
+          message.metadata?.agentName || 'Conseiller' : message.role === 'system' ? 'Conversation' : 'SupportLoop'}
+          <time>{message.createdAt ? new Date(message.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''}</time></div>
         <p>{message.content}</p>
-        {Number.isFinite(message.metadata?.confidence) ? <small>Score estime : {Math.round(message.metadata.confidence * 100)}%</small> : null}
-        {message.metadata?.tools?.length ? <small>{message.metadata.tools.map((tool) => tool.name).join(' · ')}</small> : null}
         {message.metadata?.sources?.length ? <div className="sources">{message.metadata.sources.map((source, index) =>
-          <details key={`${source.id}-${index}`}><summary>[{source.citation}] {source.source}</summary><p>{source.excerpt || source.content}</p></details>)}</div> : null}
-        <time>{message.createdAt ? new Date(message.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''}</time>
+          <details key={`${source.id}-${index}`}><summary><BookOpen size={12} />Source [{source.citation}] · {source.source.startsWith('learned/') ? 'Connaissance validée' : source.source}</summary><p>{source.excerpt || source.content}</p></details>)}</div> : null}
       </article>;
     })}
     <div ref={end} />

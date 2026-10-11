@@ -17,7 +17,7 @@ export function normalize(text) {
   return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
-export function createToolExecutor({ state, repo, provider, knowledgeStore, minSimilarity = 0.35 }) {
+export function createToolExecutor({ state, repo, store, provider, knowledgeStore, minSimilarity = 0.35 }) {
   const traces = [];
   let calls = 0;
   let nextCitation = 1;
@@ -62,7 +62,18 @@ export function createToolExecutor({ state, repo, provider, knowledgeStore, minS
             if (!provider || !knowledgeStore) {
               // The demo uses the same excerpts as knowledge/demo; no semantic-search claim.
               const query = normalize(args.query);
-              result = /retour|annul|rembours/.test(query) ? [{ id: 'demo-returns', source: 'demo/returns.md', chunkIndex: 0,
+              const tokens = (value) => new Set(normalize(value).match(/[a-z0-9]+/g)?.filter((word) =>
+                word.length > 2 && !['une', 'les', 'des', 'est', 'pour', 'avec', 'mon', 'mes', 'que', 'qui', 'dans', 'veux', 'peux', 'parler', 'humain', 'conseiller'].includes(word)) || []);
+              const queryTokens = tokens(query);
+              const learned = store ? await store.listLearnedKnowledge({ status: 'active' }) : [];
+              const matches = learned.map((entry) => {
+                const known = tokens(entry.question);
+                const overlap = [...queryTokens].filter((word) => known.has(word)).length;
+                return { entry, score: overlap / Math.max(queryTokens.size, known.size, 1), overlap };
+              }).filter(({ score, overlap }) => score >= 0.65 && overlap >= 2).sort((a, b) => b.score - a.score);
+              result = matches.length ? matches.slice(0, 4).map(({ entry, score }) => ({ id: entry.id,
+                source: `learned/${entry.id}.md`, chunkIndex: 0, content: entry.human_answer, similarity: score })) :
+                /retour|annul|rembours/.test(query) ? [{ id: 'demo-returns', source: 'demo/returns.md', chunkIndex: 0,
                 content: 'Boutique fictive : retour sous 14 jours apres livraison, produit non utilise et emballage original. Une commande expediee ne peut pas etre annulee.', similarity: 1 }] :
                 /livr|expedi|delai/.test(query) ? [{ id: 'demo-delivery', source: 'demo/delivery.md', chunkIndex: 0,
                   content: 'Boutique fictive : livraison standard sous 3 a 5 jours ouvrables apres expedition. Suivi envoye par email.', similarity: 1 }] : [];
