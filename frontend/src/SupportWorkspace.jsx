@@ -4,7 +4,7 @@ import { api, statusLabels, reasonLabels, money } from './api.js';
 import MessageList from './MessageList.jsx';
 import Dashboard from './Dashboard.jsx';
 
-const knowledgeStatusLabels = { new: 'Nouvelle', review: 'En révision', approved: 'Approuvée', rejected: 'Rejetée', active: 'Active' };
+const knowledgeStatusLabels = { new: 'New', review: "Under review", approved: "Approved", rejected: "Rejected", active: 'Active' };
 
 function KnowledgeReview({ apiKey, onUnauthorized, structured = false }) {
   const [rows, setRows] = useState([]);
@@ -44,7 +44,7 @@ function KnowledgeReview({ apiKey, onUnauthorized, structured = false }) {
       else if (action === 'save') {
         const patch = {};
         if (editAnswer.trim()) patch.human_answer = editAnswer.trim();
-        try { patch.extracted_rule = editRule.trim() ? JSON.parse(editRule.trim()) : null; } catch { throw new Error('Règle JSON invalide.'); }
+        try { patch.extracted_rule = editRule.trim() ? JSON.parse(editRule.trim()) : null; } catch { throw new Error("Invalid JSON rule."); }
         updated = await api(`/support/knowledge/${selected.id}`, { method: 'PATCH', support: true, key: apiKey, body: patch });
       }
       setSelected(updated);
@@ -64,13 +64,13 @@ function KnowledgeReview({ apiKey, onUnauthorized, structured = false }) {
   return (
     <section className="support-workspace">
       <div className="workspace-toolbar">
-        <h2>Connaissances apprises</h2>
-        <label className="search-field"><Search size={16} /><input aria-label="Rechercher une connaissance" placeholder="Rechercher…" value={query} onChange={(e) => setQuery(e.target.value)} /></label>
-        <select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filtrer par statut">
-          <option value="">Toutes</option>
+        <h2>Learned knowledge</h2>
+        <label className="search-field"><Search size={16} /><input aria-label="Search knowledge" placeholder="Rechercher…" value={query} onChange={(e) => setQuery(e.target.value)} /></label>
+        <select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filter by status">
+          <option value="">All</option>
           {Object.entries(knowledgeStatusLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
-        <button className="icon-button secondary" title="Actualiser" aria-label="Actualiser les connaissances" onClick={async () => {
+        <button className="icon-button secondary" title="Refresh" aria-label="Refresh knowledge" onClick={async () => {
           try { const data = await request(`/knowledge${filter ? `?status=${filter}` : ''}`); setRows(data.knowledge); setError(''); }
           catch (err) { setError(err.message); }
         }}><RefreshCw size={16} /></button>
@@ -78,12 +78,12 @@ function KnowledgeReview({ apiKey, onUnauthorized, structured = false }) {
       {error ? <p className="error" role="alert">{error}</p> : null}
       <div className="support-columns">
         <aside className="queue">
-          {!rows.length ? <p className="muted queue-empty">Aucune connaissance.</p> : null}
+          {!rows.length ? <p className="muted queue-empty">No knowledge yet.</p> : null}
           {rows.filter((row) => `${row.question} ${row.human_answer} ${row.extracted_rule?.intent || ''}`.toLowerCase().includes(query.toLowerCase())).map((row) => (
             <button key={row.id} data-knowledge-id={row.id}
               className={`queue-row ${selected?.id === row.id ? 'selected' : ''}`}
               onClick={() => { setSelected(row); setEditing(false); setError(''); }}>
-              <strong>{row.extracted_rule?.intent || 'Réponse à valider'}</strong>
+              <strong>{row.extracted_rule?.intent || "Answer awaiting approval"}</strong>
               <span className={`badge ${row.status === 'active' ? 'resolved' : row.status === 'rejected' ? '' : 'waiting'}`}>
                 {knowledgeStatusLabels[row.status] || row.status}
               </span>
@@ -93,56 +93,56 @@ function KnowledgeReview({ apiKey, onUnauthorized, structured = false }) {
         </aside>
 
         {!selected
-          ? <div className="workspace-empty"><BookOpen size={32} /><p>Sélectionnez une connaissance.</p></div>
+          ? <div className="workspace-empty"><BookOpen size={32} /><p>Select a knowledge entry.</p></div>
           : (
             <div className="case-workspace">
               <header className="case-header">
                 <div>
-                  <h2>{selected.extracted_rule?.intent || 'Connaissance issue du support'}</h2>
-                  <small>{new Date(selected.created_at).toLocaleString('fr-FR')}</small>
+                  <h2>{selected.extracted_rule?.intent || "Knowledge from support"}</h2>
+                  <small>{new Date(selected.created_at).toLocaleString("en-GB")}</small>
                 </div>
                 <span className={`badge ${selected.status === 'active' ? 'resolved' : selected.status === 'rejected' ? '' : 'waiting'}`}>
                   {knowledgeStatusLabels[selected.status] || selected.status}
                 </span>
-                {selected.status === 'new' ? <button className="secondary" disabled={busy || editing} onClick={() => act('review')}><Eye size={16} />Réviser</button> : null}
-                {selected.status === 'active' ? <button className="secondary" disabled={busy} onClick={()=>act('revoke')}><X size={16}/>Retirer de l’assistant</button> : null}
+                {selected.status === 'new' ? <button className="secondary" disabled={busy || editing} onClick={() => act('review')}><Eye size={16} />Review</button> : null}
+                {selected.status === 'active' ? <button className="secondary" disabled={busy} onClick={()=>act('revoke')}><X size={16}/>Remove from assistant</button> : null}
                 {['new', 'review', 'approved'].includes(selected.status) ? <>
-                  <button disabled={busy || editing} onClick={() => act('approve')}><Check size={16} />{selected.status === 'approved' ? 'Réessayer l’indexation' : 'Approuver'}</button>
-                  {selected.status !== 'approved' ? <><button className="secondary" disabled={busy || editing} onClick={() => act('reject')}><X size={16} />Rejeter</button>
-                  <button className="secondary" disabled={busy} onClick={() => openEdit(selected)}><Pencil size={16} />Éditer</button></> : null}
+                  <button disabled={busy || editing} onClick={() => act('approve')}><Check size={16} />{selected.status === 'approved' ? "Retry indexing" : "Approve"}</button>
+                  {selected.status !== 'approved' ? <><button className="secondary" disabled={busy || editing} onClick={() => act('reject')}><X size={16} />Reject</button>
+                  <button className="secondary" disabled={busy} onClick={() => openEdit(selected)}><Pencil size={16} />Edit</button></> : null}
                 </> : null}
               </header>
 
               <div className="knowledge-detail" style={{ overflowY: 'auto', flex: 1, padding: '20px' }}>
-                {selected.status === 'active' ? <div className="knowledge-notice"><ShieldCheck size={16} />Validée et disponible pour les prochaines réponses.</div> : null}
+                {selected.status === 'active' ? <div className="knowledge-notice"><ShieldCheck size={16} />Approved and available for future answers.</div> : null}
                 <div className="knowledge-section">
-                  <h3>Question client</h3>
+                  <h3>Customer question</h3>
                   <p className="knowledge-text">{selected.question}</p>
                 </div>
                 {selected.ai_answer ? <div className="knowledge-section">
-                  <h3>Réponse IA initiale</h3>
+                  <h3>Original AI answer</h3>
                   <p className="knowledge-text ai-answer">{selected.ai_answer}</p>
                 </div> : null}
                 <div className="knowledge-section">
-                  <h3>Réponse du conseiller</h3>
+                  <h3>Advisor’s reply</h3>
                   {editing
-                    ? <textarea aria-label="Réponse conseiller" rows={4} value={editAnswer}
+                    ? <textarea aria-label="Advisor reply" rows={4} value={editAnswer}
                         onChange={(e) => setEditAnswer(e.target.value)} style={{ width: '100%' }} />
                     : <p className="knowledge-text human-answer">{selected.human_answer}</p>}
                 </div>
                 <div className="knowledge-section">
-                  <h3>Règle extraite</h3>
-                  {editing && structured ? <div className="admin-edit-form">{[['intent','Sujet'],['condition','Quand appliquer cette règle'],['resolution','Réponse générale'],['notes','Précisions (facultatif)']].map(([field,label])=><label key={field}>{label}<textarea aria-label={label} rows={field==='resolution'?4:2} maxLength={2000} value={(editRule?JSON.parse(editRule):{})[field]||''} onChange={(event)=>setEditRule(JSON.stringify({...editRule?JSON.parse(editRule):{},[field]:event.target.value||null}))}/></label>)}<p className="muted">Conservez uniquement les informations applicables à tous les clients.</p></div> : editing
-                    ? <textarea aria-label="Règle JSON" rows={8} value={editRule}
+                  <h3>Extracted rule</h3>
+                  {editing && structured ? <div className="admin-edit-form">{[['intent',"Topic"],['condition',"When this rule applies"],['resolution',"General answer"],['notes',"Details (optional)"]].map(([field,label])=><label key={field}>{label}<textarea aria-label={label} rows={field==='resolution'?4:2} maxLength={2000} value={(editRule?JSON.parse(editRule):{})[field]||''} onChange={(event)=>setEditRule(JSON.stringify({...editRule?JSON.parse(editRule):{},[field]:event.target.value||null}))}/></label>)}<p className="muted">Keep only information that applies to all customers.</p></div> : editing
+                    ? <textarea aria-label="JSON rule" rows={8} value={editRule}
                         onChange={(e) => setEditRule(e.target.value)} style={{ width: '100%', fontFamily: 'monospace', fontSize: '0.8rem' }} />
-                    : selected.extracted_rule && structured ? <div className="rule-fields">{[['intent','Sujet'],['condition','Condition'],['resolution','Réponse générale'],['notes','Précisions']].map(([field,label])=>selected.extracted_rule[field]&&<div key={field}><strong>{label}</strong><p className="knowledge-text">{selected.extracted_rule[field]}</p></div>)}</div> : selected.extracted_rule
+                    : selected.extracted_rule && structured ? <div className="rule-fields">{[['intent',"Topic"],['condition','Condition'],['resolution',"General answer"],['notes',"Details"]].map(([field,label])=>selected.extracted_rule[field]&&<div key={field}><strong>{label}</strong><p className="knowledge-text">{selected.extracted_rule[field]}</p></div>)}</div> : selected.extracted_rule
                       ? <pre className="knowledge-rule">{JSON.stringify(selected.extracted_rule, null, 2)}</pre>
-                      : <p className="muted">Aucune règle extraite.</p>}
+                      : <p className="muted">No extracted rule.</p>}
                 </div>
                 {editing
                   ? <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
-                      <button disabled={busy} onClick={() => act('save')}><Check size={16} />Sauvegarder</button>
-                      <button className="secondary" onClick={() => setEditing(false)}>Annuler</button>
+                      <button disabled={busy} onClick={() => act('save')}><Check size={16} />Save</button>
+                      <button className="secondary" onClick={() => setEditing(false)}>Cancel</button>
                     </div>
                   : null}
               </div>
@@ -217,22 +217,22 @@ export default function SupportWorkspace({ demoMode, sessionUser, onUnauthorized
     finally { setBusy(false); }
   }
 
-  if (loading) return <p className="muted" role="status">Connexion à votre espace…</p>;
+  if (loading) return <p className="muted" role="status">Connecting to your workspace…</p>;
   if (!connected) return (
     <form className="access-form" onSubmit={(event) => {
       event.preventDefault(); setKey(keyDraft); setConnected(true); setError('');
     }}>
-      <KeyRound size={24} /><h2>Accès conseiller</h2>
-      <label>Clé d'accès<input type="password" autoComplete="off" value={keyDraft} onChange={(event) => setKeyDraft(event.target.value)} /></label>
-      <button type="submit"><KeyRound size={16} />Connexion</button>
+      <KeyRound size={24} /><h2>Advisor access</h2>
+      <label>Access key<input type="password" autoComplete="off" value={keyDraft} onChange={(event) => setKeyDraft(event.target.value)} /></label>
+      <button type="submit"><KeyRound size={16} />Sign in</button>
       {error ? <p className="error" role="alert">{error}</p> : null}
     </form>
   );
 
   return (
     <section style={{ minHeight: 560 }}>
-      {!demoMode && !sessionUser ? <div className="support-session"><span><ShieldCheck size={14} />Session conseiller</span>
-        <button className="icon-button secondary" style={{ marginLeft: 'auto' }} title="Déconnexion" aria-label="Déconnexion" onClick={() => {
+      {!demoMode && !sessionUser ? <div className="support-session"><span><ShieldCheck size={14} />Advisor session</span>
+        <button className="icon-button secondary" style={{ marginLeft: 'auto' }} title="Sign out" aria-label="Sign out" onClick={() => {
           setConnected(false); setKey(''); setKeyDraft(''); setRows([]); setDetail(null);
         }}><LogOut size={17} /></button>
       </div> : null}
@@ -246,29 +246,29 @@ export default function SupportWorkspace({ demoMode, sessionUser, onUnauthorized
         <section className="support-workspace">
           <div className="workspace-toolbar">
             <h2>Conversations</h2>
-            <span className="queue-count">{rows.filter((row) => row.status === 'waiting').length} en attente</span>
-            <label className="threshold">Seuil <input aria-label="Seuil de confiance" type="range" min="0" max="100" step="1"
+            <span className="queue-count">{rows.filter((row) => row.status === 'waiting').length} waiting</span>
+            <label className="threshold">Threshold <input aria-label="Confidence threshold" type="range" min="0" max="100" step="1"
               value={Math.round(threshold * 100)} onChange={(event) => setThreshold(Number(event.target.value) / 100)} />
               <output>{Math.round(threshold * 100)}%</output></label>
             <button disabled={busy || threshold === savedThreshold} onClick={async () => {
               setBusy(true); setError('');
               try { await request('/settings', { method: 'PATCH', body: { threshold } }); setSavedThreshold(threshold); }
               catch (err) { setError(err.message); } finally { setBusy(false); }
-            }}><Check size={16} />Appliquer</button>
+            }}><Check size={16} />Apply</button>
           </div>
           {error ? <p className="error" role="alert">{error}</p> : null}
           <div className="support-columns">
             <aside className="queue">
-              <label className="search-field queue-search"><Search size={16} /><input aria-label="Rechercher une conversation" placeholder="Rechercher un client, un message…" value={query} onChange={(e) => setQuery(e.target.value)} /></label>
+              <label className="search-field queue-search"><Search size={16} /><input aria-label="Search conversations" placeholder="Search customers or messages…" value={query} onChange={(e) => setQuery(e.target.value)} /></label>
               <div className="queue-toolbar">
-                <select aria-label="Filtrer les conversations" value={filter} onChange={(event) => setFilter(event.target.value)}>
-                  <option value="waiting">En attente</option>
-                  <option value="human">Prises en charge</option>
-                  <option value="resolved">Résolues</option>
-                  <option value="ai">Automatiques</option>
-                  <option value="all">Toutes</option>
+                <select aria-label="Filter conversations" value={filter} onChange={(event) => setFilter(event.target.value)}>
+                  <option value="waiting">Waiting</option>
+                  <option value="human">Assigned</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="ai">Automatic</option>
+                  <option value="all">All</option>
                 </select>
-                <button className="icon-button secondary" title="Actualiser" aria-label="Actualiser" onClick={async () => {
+                <button className="icon-button secondary" title="Refresh" aria-label="Refresh" onClick={async () => {
                   try { setRows((await request('/conversations')).conversations); } catch (err) { setError(err.message); }
                 }}><RefreshCw size={16} /></button>
               </div>
@@ -276,14 +276,14 @@ export default function SupportWorkspace({ demoMode, sessionUser, onUnauthorized
                 const visible = rows.filter((row) => (filter === 'all' || row.status === filter) &&
                   `${row.id} ${row.customer?.name || ''} ${row.preview}`.toLowerCase().includes(query.toLowerCase()));
                 return <>
-                  {!visible.length ? <p className="muted queue-empty">Aucune conversation.</p> : null}
+                  {!visible.length ? <p className="muted queue-empty">No conversations yet.</p> : null}
                   {visible.map((row) => (
                     <button className={`queue-row ${selected === row.id ? 'selected' : ''}`} key={row.id} data-conversation-id={row.id}
                       onClick={() => { setSelected(row.id); setDetail(null); setReply(''); setError(''); }}>
                       <strong>{row.customer?.name || row.id}</strong>
                       <span className={`badge ${row.status}`}>{statusLabels[row.status]}</span>
                       <p>{row.preview}</p>
-                      <small>{reasonLabels[row.escalation?.reason] || row.escalation?.reason || 'Support automatique'}</small>
+                      <small>{reasonLabels[row.escalation?.reason] || row.escalation?.reason || "Automatic support"}</small>
                     </button>
                   ))}
                 </>;
@@ -291,27 +291,27 @@ export default function SupportWorkspace({ demoMode, sessionUser, onUnauthorized
             </aside>
 
             {!detail
-              ? <div className="workspace-empty"><UserCheck size={32} /><p>{selected ? 'Chargement...' : 'Sélectionnez une conversation.'}</p></div>
+              ? <div className="workspace-empty"><UserCheck size={32} /><p>{selected ? 'Chargement...' : "Select a conversation."}</p></div>
               : (
                 <div className="case-workspace">
                   <header className="case-header">
                     <div><h2>{detail.customer?.name}</h2><small>{detail.customer?.email}</small></div>
                     <span className={`badge ${detail.status}`}>{statusLabels[detail.status]}</span>
-                    {detail.status === 'waiting' ? <button disabled={busy} onClick={() => act('claim')}><UserCheck size={16} />Prendre en charge</button> : null}
+                    {detail.status === 'waiting' ? <button disabled={busy} onClick={() => act('claim')}><UserCheck size={16} />Take over</button> : null}
                     {detail.status === 'human' ? <>
-                      <button className="secondary" disabled={busy} onClick={() => act('resume')}><Bot size={16} />Reprendre avec l'IA</button>
-                      <button disabled={busy} onClick={() => act('resolve')}><Check size={16} />Résoudre</button>
+                      <button className="secondary" disabled={busy} onClick={() => act('resume')}><Bot size={16} />Resume with AI</button>
+                      <button disabled={busy} onClick={() => act('resolve')}><Check size={16} />Resolve</button>
                     </> : null}
                   </header>
                   {detail.escalation ? (
                     <div className="handoff-context">
                       <strong>{reasonLabels[detail.escalation.reason] || detail.escalation.reason}</strong>
-                      {Number.isFinite(detail.escalation.confidence) ? <span>Score estimé : {Math.round(detail.escalation.confidence * 100)}%</span> : null}
+                      {Number.isFinite(detail.escalation.confidence) ? <span>Estimated score: {Math.round(detail.escalation.confidence * 100)}%</span> : null}
                       <small>Ticket {detail.escalation.ticketId}</small>
                     </div>
                   ) : null}
                   <details className="context-details">
-                    <summary>Commandes et outils ({detail.traces.length})</summary>
+                    <summary>Orders and tools ({detail.traces.length})</summary>
                     <div className="context-grid">
                       <div>{detail.orders.map((order) => <p key={order.id}>{order.id} · {order.status} · {money(order.total_cents)}</p>)}</div>
                       <div>{detail.traces.map((trace) => (
@@ -324,9 +324,9 @@ export default function SupportWorkspace({ demoMode, sessionUser, onUnauthorized
                   <MessageList messages={detail.messages} />
                   {detail.status === 'human' ? (
                     <form className="composer" onSubmit={(event) => { event.preventDefault(); act('reply'); }}>
-                      <textarea aria-label="Réponse conseiller" placeholder="Votre réponse..." maxLength={4000} rows={2}
+                      <textarea aria-label="Advisor reply" placeholder="Your reply…" maxLength={4000} rows={2}
                         value={reply} onChange={(event) => setReply(event.target.value)} disabled={busy} />
-                      <button type="submit" disabled={busy || !reply.trim()}><Send size={16} />Envoyer</button>
+                      <button type="submit" disabled={busy || !reply.trim()}><Send size={16} />Send</button>
                     </form>
                   ) : null}
                 </div>

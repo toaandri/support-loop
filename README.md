@@ -4,42 +4,33 @@
 
 # SupportLoop
 
-**Le support, en continu.**
+**Clear answers. Support that stays with you.**
 
-Un portail client. Un espace équipe. Une IA qui s’appuie sur vos données
-et progresse grâce aux réponses validées par votre équipe.
+A customer portal and a team workspace, with an optional AI assistant grounded in your data and knowledge reviewed by your team.
 
 [![CI](https://github.com/toaandri/support-loop/actions/workflows/ci.yml/badge.svg)](https://github.com/toaandri/support-loop/actions/workflows/ci.yml)
 ![React](https://img.shields.io/badge/React-18-28372f?logo=react&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-22%2B-3b8068?logo=nodedotjs&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-657b96?logo=postgresql&logoColor=white)
-![Groq](https://img.shields.io/badge/IA-Groq-b07c5d)
 
-[Démarrer](#démarrer) · [Fonctionnalités](#deux-espaces-un-même-suivi) · [Apprentissage](#comment-lia-apprend) · [Documentation](#documentation)
+[Get started](#get-started) · [Features](#one-service-two-workspaces) · [Learning loop](#how-the-assistant-learns) · [French documentation](README.fr.md)
 
-![Portail client SupportLoop](docs/media/portal-home.png)
+![Customer portal](docs/media/portal-home.png)
 
 </div>
 
-SupportLoop est une application de support adaptable à votre activité : les articles,
-produits et services se configurent dans l’administration. Les clients créent leur
-compte et retrouvent leurs propres demandes. PostgreSQL conserve les comptes,
-sessions, conversations, tickets et connaissances après un redémarrage.
+Publish your own help articles, products and services. Customers create an account and follow their private requests; the team handles conversations and reviews reusable knowledge. PostgreSQL persists accounts, sessions, requests, orders and approved knowledge across restarts.
 
-L’IA utilise **Groq**, avec `openai/gpt-oss-20b`, et des données récupérées par le
-serveur. Une clé personnelle est nécessaire ; l’offre gratuite dépend des quotas
-[Groq](https://console.groq.com/docs/rate-limits). Sans clé ou en cas d’indisponibilité,
-les demandes passent à un conseiller. Aucune réponse générée n’est simulée en mode Groq.
+The interface and main documentation are in **English**. Customer messages and your published content retain their original language. Currency remains EUR.
 
-## Démarrer
+## Get started
 
-Prérequis : **Node.js 22.16+**, npm et **Docker** pour PostgreSQL.
+Requirements: **Node.js 22.16+**, npm and **Docker** for PostgreSQL.
 
-1. Copier `.env.example` vers `.env`.
-2. Définir `ADMIN_EMAIL` et un `ADMIN_PASSWORD` unique de **12 à 128 caractères**.
-3. Ajouter `GROQ_API_KEY` depuis [la console Groq](https://console.groq.com/keys).
-   Vous pouvez l’ajouter plus tard : les comptes, articles et échanges humains fonctionnent déjà.
-4. Depuis la racine :
+1. Copy `.env.example` to `.env`.
+2. Set `ADMIN_EMAIL` and a unique `ADMIN_PASSWORD` of **12–128 characters**.
+3. Optionally add `GROQ_API_KEY` from [Groq](https://console.groq.com/keys). Accounts, help articles and human support work without it.
+4. Run from the repository root:
 
 ```bash
 npm run setup
@@ -47,116 +38,95 @@ docker compose up -d postgres
 npm run dev
 ```
 
-| Adresse | Espace |
-|---|---|
-| [localhost:5173](http://localhost:5173) | Portail client : accueil, centre d’aide, catalogue, demandes et commandes |
-| [localhost:5173/admin](http://localhost:5173/admin) | Administration : connexion avec les identifiants de `.env` |
-| [localhost:3000/api/health](http://localhost:3000/api/health) | État du backend |
+| URL | Workspace |
+| --- | --- |
+| [localhost:5173](http://localhost:5173) | Customer portal, help, catalog, requests and orders |
+| [localhost:5173/admin](http://localhost:5173/admin) | Team sign-in using the configured administrator credentials |
+| [localhost:3000/api/health](http://localhost:3000/api/health) | API health |
 
-Si 5173 est occupé, définir `FRONTEND_PORT=5174`. Le lanceur affiche le port utilisé.
-Les schémas sont appliqués au démarrage. **Aucune boutique ou commande fictive n’est
-créée dans une base neuve.** Le premier administrateur est créé au démarrage ; son
-mot de passe n’est pas écrasé lors des suivants.
+If port 5173 is busy, set `FRONTEND_PORT=5174`; the launcher prints the selected address. Schema setup is idempotent. A fresh database contains **no fabricated store or orders**. The initial administrator is created at startup; later starts do not overwrite their password.
 
-Commencer dans `/admin` par publier les informations utiles dans **Centre d’aide**,
-puis ajouter vos produits ou services dans **Catalogue**. Un nouveau compte client
-se crée depuis **Mon espace → Créer un compte**. Dans **Réglages**, tester la connexion Groq.
+Publish useful articles through **Help centre** and add products or services through **Catalogue** in the administration. Customers register through **My account → Create an account**. Test the optional Groq connection in **Settings**.
 
-Pour exécuter toute la stack compilée avec Nginx :
+To run the compiled stack with Nginx:
 
 ```bash
 docker compose up -d --build
 ```
 
-Les ports restent liés à localhost. Les volumes PostgreSQL conservent les données.
-Le `.env` est privé et exclu de Git. La clé Groq reste exclusivement sur le serveur.
+Ports bind to localhost. PostgreSQL volumes preserve data. `.env` is private and ignored by Git; provider keys stay on the server.
 
-## Deux espaces, un même suivi
+## One service, two workspaces
 
-| Portail client | Administration |
-|---|---|
-| Inscription, connexion et déconnexion | Authentification et rôle administrateur |
-| Centre d’aide public et recherche | Publication, édition et retrait des articles |
-| Catalogue, prix et disponibilité | Création et modification des produits ou services |
-| Demandes privées, historique et statuts | File, recherche, contexte, prise en charge et réponse |
-| Commandes associées au compte | Clients, commandes du dossier et traces des outils |
-| Réponses du conseiller actualisées automatiquement | Révision, édition, validation et retrait des connaissances |
-| Interface adaptée au mobile | Statistiques calculées sur les événements et seuil de transfert |
+| Customers | Support team |
+| --- | --- |
+| Registration, sign-in and sign-out | Authenticated administrator role |
+| Public help articles and search | Publish, edit and withdraw articles |
+| Catalog, prices and availability | Maintain products and services |
+| Private requests, history and statuses | Queue, search, context, assignment and replies |
+| Account-specific orders | Customer details, related orders and tool traces |
+| Automatically refreshed human replies | Review, edit, approve and withdraw knowledge |
+| Responsive mobile layouts | Event-based statistics and handoff settings |
 
-![Visite du portail et de l’administration](docs/media/portal-tour.gif)
+![Customer portal and team workspace tour](docs/media/portal-tour.gif)
 
-Les sessions utilisent des cookies `HttpOnly`, `SameSite=Strict`, avec une durée de
-sept jours. Les mots de passe sont hachés avec scrypt. L’identité client vient de
-la session : envoyer un autre `customerId` dans une requête ne donne aucun accès à
-ses conversations ou commandes. Les actions du conseiller vérifient également son identité.
+Sessions use `HttpOnly`, `SameSite=Strict` cookies with a seven-day lifetime. Passwords are hashed with scrypt. Customer identity comes from the session; supplying a different customer ID never grants access to that customer's conversations or orders. Team actions also validate the acting identity.
 
-## Comment l’IA apprend
+## How the assistant learns
 
-**Question → sources vérifiées → réponse ou relais humain → résolution → règle proposée → validation → réutilisation.**
+**Question → verified sources → answer or human handoff → resolution → proposed rule → review → reuse.**
 
-![Demande, réponse du conseiller et publication de la règle](docs/media/portal-workflow.gif)
+![Human support and reviewed knowledge publication](docs/media/portal-workflow.gif)
 
-Ce GIF est enregistré dans le vrai portail, sur une base de test isolée, sans clé
-Groq. Il montre le relais humain et la rédaction manuelle d’une règle. Avec une
-clé, Groq propose automatiquement cette règle à la résolution ; sa validation
-reste une décision de l’équipe.
+These recordings use the actual application and an isolated test database, without a Groq key. The workflow shows human handling and a manually written rule. With a configured provider, Groq can propose a rule when a request is resolved; publication still requires the team's approval. Names and example content in a recording are test data and may be in French.
 
-1. Le backend cherche dans les articles et connaissances validées, puis récupère
-   les données métier nécessaires dans le contexte du client connecté.
-2. Groq formule une réponse à partir de ces faits et cite les extraits documentaires.
-3. Une action sensible, une demande de conseiller, un manque de preuve, une confiance
-   insuffisante ou une panne déclenchent un transfert avec ticket et historique.
-4. À la résolution, une proposition conserve la correction et sa provenance pour révision.
-5. L’équipe vérifie le sujet, la condition et la réponse générale. En mode Groq,
-   **seule cette règle générale** rejoint l’index, sans recopier la correction privée.
-6. La règle validée devient disponible aux prochaines recherches. Elle peut être retirée.
+1. The server searches help articles and approved knowledge, and retrieves relevant business data for the signed-in customer.
+2. Groq drafts a response from those facts with documentary citations.
+3. Sensitive actions, a request for a person, insufficient evidence, low confidence or provider failure trigger a ticket and human handoff with history.
+4. Resolution produces a reviewable proposal that retains its correction and provenance.
+5. The team verifies the topic, condition and general answer. In Groq mode, only the **general rule** enters the index, without copying the private correction.
+6. Approved rules become available for later searches and can be withdrawn.
 
-L’apprentissage enrichit une **base de connaissances** ; il ne modifie pas les poids
-du modèle. La recherche Groq utilise le plein texte PostgreSQL, principalement en
-français, sans API d’embeddings payante. Le score de confiance est une estimation.
-Le JSON strict est compatible avec le [modèle choisi](https://console.groq.com/docs/structured-outputs).
+This enriches a **knowledge base**; it does not train model weights. The default provider is Groq with `openai/gpt-oss-20b`. You supply your own key, and [provider quotas](https://console.groq.com/docs/rate-limits) apply. In Groq mode, an absent key or provider outage transfers requests to a person; generated responses are never simulated. PostgreSQL full-text search is currently tuned primarily for French content. Confidence is an estimate, not a factual guarantee.
 
-![Espace équipe et gestion des conversations](docs/media/portal-admin-conversations.png)
+![Team conversation management](docs/media/portal-admin-conversations.png)
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    C[Portail client] --> API[Express · sessions et rôles]
-    H[Administration] --> API
-    API --> PG[(PostgreSQL · comptes et données)]
-    API --> K[Recherche dans les articles et règles validées]
-    K --> G[Groq · génération structurée]
-    G --> R{Preuves et confiance suffisantes ?}
-    R -->|Oui| A[Réponse sourcée]
-    R -->|Non| T[Ticket et relais humain]
-    T --> V[Résolution et révision]
-    V -->|Validation| K
+    C[Customer portal] --> API[Express: sessions and roles]
+    H[Team workspace] --> API
+    API --> PG[(PostgreSQL)]
+    API --> K[Articles and approved knowledge]
+    K --> G[Groq: structured generation]
+    G --> R{Enough evidence and confidence?}
+    R -->|Yes| A[Sourced answer]
+    R -->|No| T[Ticket and human handoff]
+    T --> V[Resolution and review]
+    V -->|Approval| K
 ```
 
 ```text
-backend/          API, authentification, fournisseurs IA, règles métier, tests
-frontend/         Portail public et client, administration, assets locaux
-database/         Schémas idempotents et fixtures séparées
-knowledge/        Documents à ingérer ; exemples isolés dans demo/
-scripts/          Démarrage, tests navigateur, GIFs, sauvegarde
-docs/             Guides d’utilisation, API, sécurité et exploitation
-n8n/workflows/    Adaptateurs facultatifs, credentials à configurer
+backend/          API, authentication, providers, business rules and tests
+frontend/         Customer portal, team workspace and local assets
+database/         Idempotent schemas and separate fixtures
+knowledge/        Documents for ingestion; isolated demo examples
+scripts/          Startup, browser checks, media capture and backups
+docs/             API, architecture, operations and security guides
+n8n/workflows/    Optional adapters requiring explicit credentials
 ```
 
-## Vérifications
+## Verify the project
 
 ```bash
-npm run check       # Tests backend + build React
-npm run evaluate    # 15 cas déterministes du moteur hors ligne + avant/après
+npm run check       # Backend tests and React production build
+npm run evaluate    # Deterministic offline scenarios and before/after comparison
 ```
 
-Pour inclure les intégrations, créer une base dédiée `supportloop_test`, puis définir
-`TEST_DATABASE_URL`. Sous PowerShell :
+PostgreSQL integration tests require a **dedicated test database** and `TEST_DATABASE_URL`. Tests that lack this connection are explicitly skipped. Install the browser tooling before running UI checks:
 
-```powershell
-$env:TEST_DATABASE_URL='postgresql://supportloop:supportloop@localhost:55432/supportloop_test'
-npm run check
+```bash
 python -m pip install -r scripts/media-requirements.txt
 python -m playwright install chromium
 npm run test:portal
@@ -164,40 +134,29 @@ npm run test:e2e
 npm run docs:media
 ```
 
-Le test du portail utilise une base **jetable** `supportloop_portal_test`, des ports
-3102/5181 et des identités fictives. Il vérifie les vrais comptes, permissions,
-articles, catalogue, commandes, échanges humains, connaissances et affichages mobiles.
-Les tests Groq interceptent uniquement l’inférence externe : la récupération et
-l’activation sont vérifiées dans PostgreSQL. Un test avec une vraie clé doit encore
-être effectué après sa configuration. La CI exécute les tests sous Node 22/24 et les
-parcours Chromium sans clé externe.
+The portal check requires `TEST_DATABASE_URL` and uses a disposable `supportloop_portal_test` database on ports 3102/5181. To isolate simultaneous runs, set `PORTAL_TEST_DATABASE_NAME` to `supportloop_portal_test_<unique_suffix>`. Never point test commands at production data. It verifies accounts, access control, published help, catalog, orders, human conversation, knowledge review, persistence and mobile layouts. Provider integration tests intercept external inference while checking retrieval and activation against PostgreSQL. Live inference still requires your own key and provider validation.
 
-## Modes et extensions
+An optional `AXE_CORE_PATH` enables automated accessibility checks during portal capture. Automated checks supplement keyboard and visual review; they are not a certification.
 
-Le portail utilise `AUTH_MODE=session`, `AGENT_MODE=groq`, `STORAGE_MODE=postgres` et
-`DEMO_MODE=false`. Un mode historique en mémoire reste disponible pour les fixtures :
-`AUTH_MODE=keys`, `AGENT_MODE=demo`, `STORAGE_MODE=memory`, `DEMO_MODE=true`.
-Les anciens médias de la démo documentent ce moteur déterministe.
+## Optional modes and current limits
 
-`AGENT_MODE=rag` active l’intégration OpenAI et pgvector, avec une clé et des appels
-payants ; voir [le guide IA et recherche](docs/rag.md). n8n reste facultatif ; les
-clés de service doivent être configurées explicitement, ainsi que les credentials
-et destinations des canaux. [Guide n8n](n8n/README.md).
+Defaults: `AGENT_MODE=groq`, `STORAGE_MODE=postgres`, `AUTH_MODE=session`, `DEMO_MODE=false`. A legacy in-memory fixture mode is available with `AUTH_MODE=keys`, `AGENT_MODE=demo`, `STORAGE_MODE=memory`, `DEMO_MODE=true`; older demo media documents that deterministic engine.
 
-Les commandes se lisent depuis PostgreSQL et sont rattachées à un client. La connexion
-à un ERP ou à une plateforme de vente se fait au niveau des repositories ; aucun
-paiement, remboursement automatique ou canal email/WhatsApp n’est présenté comme connecté.
-Cette version fournit un serveur de support unique ; voir les limites et l’exploitation.
+`AGENT_MODE=rag` enables optional OpenAI/pgvector integration, requiring a key and potentially paid calls. n8n adapters also require explicitly configured service credentials and channel destinations.
 
-## Documentation
+Orders are read from PostgreSQL and scoped to their customer. ERP/store integration belongs in repositories; payments, automatic refunds and live email/WhatsApp delivery are not presented as connected. This release serves one support organization.
 
-| Guide | Contenu |
-|---|---|
-| [État du projet](docs/status.md) | Fonctions livrées, validations et limites |
-| [Architecture](docs/architecture.md) | Composants, stockage et flux |
-| [API](docs/api.md) | Comptes, routes, corps, rôles et erreurs |
-| [IA et recherche](docs/rag.md) | Groq, plein texte, ingestion et OpenAI facultatif |
-| [Apprentissage](docs/learning-loop.md) | Proposition, revue, activation, retrait et confidentialité |
-| [Exploitation](docs/operations.md) | Local, Docker, accès admin, tests, sauvegarde et diagnostic |
-| [Sécurité](docs/security.md) | Sessions, identités, outils et données envoyées au fournisseur |
-| [n8n](n8n/README.md) | Workflows, accès de service et configuration des canaux |
+## Further documentation
+
+The detailed guides are currently in French; the main GitHub presentation and interface are English.
+
+| Guide | Contents |
+| --- | --- |
+| [Project status](docs/status.md) | Delivered behavior, checks and limits |
+| [Architecture](docs/architecture.md) | Components, storage and flows |
+| [API](docs/api.md) | Accounts, routes, payloads, roles and errors |
+| [AI and retrieval](docs/rag.md) | Groq, full-text search, ingestion and optional OpenAI |
+| [Learning loop](docs/learning-loop.md) | Proposals, review, publication and privacy |
+| [Operations](docs/operations.md) | Local setup, Docker, backups and diagnostics |
+| [Security](docs/security.md) | Sessions, identities, tools and provider data |
+| [n8n](n8n/README.md) | Workflows, service access and channels |

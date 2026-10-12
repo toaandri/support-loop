@@ -32,9 +32,9 @@
   font-size: 22px;
 }
 .portal-header .brand-caption {
-  color: #849583;
+  color: #5f6b5e;
   letter-spacing: 1.7px;
-  font-size: 7px;
+  font-size: 12px;
 }
 .portal-header nav {
   display: flex;
@@ -43,7 +43,7 @@
   margin-left: auto;
 }
 .portal-nav {
-  color: #788575;
+  color: #606a5e;
   background: transparent;
   padding: 10px 12px;
   font-weight: 500;
@@ -60,7 +60,7 @@
   flex-shrink: 0;
 }
 .portal-admin-link {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--green);
 }
 .portal-main {
@@ -89,7 +89,7 @@
 .portal-hero > div > p {
   font-size: 14px;
   line-height: 1.85;
-  color: #7b8977;
+  color: #606b5d;
   max-width: 480px;
 }
 .hero-actions {
@@ -103,11 +103,11 @@
   font-size: 12px;
 }
 .hero-note {
-  font-size: 10px;
+  font-size: 12px;
   display: flex;
   gap: 8px;
   align-items: center;
-  color: #8a9685;
+  color: #61695d;
   margin-top: 21px;
 }
 .hero-visual {
@@ -146,7 +146,7 @@
   place-items: center;
 }
 .hero-service-card .eyebrow {
-  font-size: 8px;
+  font-size: 12px;
   letter-spacing: 1.7px;
 }
 .hero-service-card h2 {
@@ -157,15 +157,15 @@
 .hero-service-card p {
   font-size: 12px;
   line-height: 1.8;
-  color: #829078;
+  color: #606b59;
   margin: 0 0 21px;
 }
 .hero-service-stages {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  font-size: 10px;
-  color: #768b6b;
+  font-size: 12px;
+  color: #5c6c53;
 }
 .hero-service-stages span {
   display: flex;
@@ -191,13 +191,13 @@
   box-shadow: 0 15px 30px #1b342517;
 }
 .hero-small-card strong {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 550;
   display: block;
   margin-bottom: 5px;
 }
 .hero-small-card small {
-  font-size: 9px;
+  font-size: 12px;
   color: #9dac96;
 }
 .hero-orbit {
@@ -255,8 +255,8 @@
   margin-bottom: 6px;
 }
 .shortcut-card small {
-  font-size: 10px;
-  color: #929c8b;
+  font-size: 12px;
+  color: #636a5f;
 }
 .portal-section-heading {
   display: flex;
@@ -298,7 +298,7 @@
   padding: 26px;
 }
 .home-article > span {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
   line-height: 1.7;
 }
@@ -323,9 +323,9 @@
   font-weight: 550;
 }
 .home-support-card p {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.8;
-  color: #849077;
+  color: #626b58;
   margin: 8px 0 0;
   max-width: 560px;
 }
@@ -339,8 +339,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 10px;
-  color: #8c9785;
+  font-size: 12px;
+  color: #626a5d;
   gap: 20px;
 }
 .portal-footer > div {
@@ -373,7 +373,7 @@
   gap: 20px;
   margin-top: 34px;
   color: #728768;
-  font-size: 11px;
+  font-size: 12px;
 }
 .auth-benefits > span {
   display: flex;
@@ -402,7 +402,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  font-size: 11px;
+  font-size: 12px;
   color: #64755e;
 }
 .portal-login input {
@@ -413,7 +413,7 @@
   margin-top: 6px;
 }
 .portal-login > small {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
 }
 .portal-login .error {
@@ -447,7 +447,7 @@
   border: 1px solid transparent;
   padding: 12px;
   text-align: left;
-  color: #66765e;
+  color: #5c6a55;
   gap: 9px;
   margin-top: 7px;
 }
@@ -456,7 +456,7 @@
   border-color: #e0e8d9;
 }
 .request-link > span {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -468,8 +468,8 @@
   gap: 8px;
   align-items: center;
   justify-content: space-between;
-  color: #95a08c;
-  font-size: 8px;
+  color: #626a5c;
+  font-size: 12px;
 }
 .request-list {
   display: flex;
@@ -501,8 +501,8 @@
 .request-card small {
   display: block;
   margin-top: 7px;
-  font-size: 10px;
-  color: #8d9b85;
+  font-size: 12px;
+  color: #60695a;
 }
 .request-icon {
   width: 42px;
@@ -576,7 +576,7 @@
   white-space: pre-line;
   font-size: 12px;
   line-height: 1.95;
-  color: #7a8971;
+  color: #5f6b58;
   margin: 22px 0 0;
   overflow-wrap: anywhere;
 }
@@ -597,7 +597,7 @@
 }
 .contact-strip p {
   font-size: 12px;
-  color: #839178;
+  color: #616b59;
   margin: 9px 0 0;
   line-height: 1.8;
 }
@@ -647,7 +647,7 @@
 }
 .admin-product-row small {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   margin-top: 7px;
   color: var(--muted);
 }
@@ -701,7 +701,7 @@
   font-size: 12px;
 }
 .admin-table th {
-  font-size: 10px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.8px;
   color: #8b9882;
@@ -725,7 +725,7 @@
 .settings-grid .panel > p {
   font-size: 12px;
   line-height: 1.9;
-  color: #819175;
+  color: #5f6b57;
   margin: 18px 0;
 }
 .settings-icon {
@@ -764,7 +764,7 @@
     gap: 0;
   }
   .portal-nav {
-    font-size: 11px;
+    font-size: 12px;
     padding: 10px;
   }
   .portal-header .brand {
@@ -790,7 +790,7 @@
     height: 36px;
   }
   .shortcut-card small {
-    font-size: 9px;
+    font-size: 12px;
   }
   .portal-order-grid {
     grid-template-columns: 1fr 1fr;
@@ -853,10 +853,10 @@
   }
   .hero-actions button {
     padding: 11px 14px;
-    font-size: 11px;
+    font-size: 12px;
   }
   .hero-note {
-    font-size: 9px;
+    font-size: 12px;
     line-height: 1.5;
   }
   .portal-shortcuts {
@@ -867,7 +867,7 @@
     padding: 19px;
   }
   .shortcut-card small {
-    font-size: 11px;
+    font-size: 12px;
   }
   .portal-auth {
     grid-template-columns: 1fr;
@@ -914,7 +914,7 @@
   }
   .portal-footer > div {
     gap: 13px;
-    font-size: 9px;
+    font-size: 12px;
   }
   .portal-section-heading {
     gap: 14px;
@@ -968,11 +968,11 @@
   }
   .portal-nav {
     padding: 9px 6px;
-    font-size: 10px;
+    font-size: 12px;
   }
   .portal-account .secondary {
     padding: 8px 11px;
-    font-size: 11px;
+    font-size: 12px;
   }
   .portal-account .icon-button {
     width: 31px;
@@ -994,7 +994,7 @@
   }
   .portal-section-heading > button {
     padding: 9px 12px;
-    font-size: 10px;
+    font-size: 12px;
   }
   .home-help-grid {
     grid-template-columns: 1fr;
@@ -1034,7 +1034,7 @@
     gap: 10px;
   }
   .portal-footer > div {
-    font-size: 10px;
+    font-size: 12px;
     gap: 22px;
   }
   .contact-strip {
@@ -1057,10 +1057,10 @@
     font-size: 13px;
   }
   .portal-support-grid .chat-header small {
-    font-size: 9px;
+    font-size: 12px;
   }
   .portal-support-grid .chat-header .badge {
-    font-size: 9px;
+    font-size: 12px;
   }
   .portal-support-grid .chat-panel {
     min-height: 570px;
@@ -1074,11 +1074,11 @@
     min-height: 62px;
   }
   .admin-app .breadcrumb {
-    font-size: 10px;
+    font-size: 12px;
     gap: 6px;
   }
   .admin-app .app-header > button {
-    font-size: 9px;
+    font-size: 12px;
     padding: 8px;
   }
   .admin-auth {
@@ -1120,7 +1120,7 @@
 }
 .rule-fields strong {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .portal-hero {
   overflow: clip;

@@ -26,7 +26,7 @@ export function createAuthRouter(auth, { secure = false } = {}) {
       !["GET", "HEAD", "OPTIONS"].includes(req.method) &&
       req.get("sec-fetch-site") === "cross-site"
     )
-      return res.status(403).json({ error: "Requête non autorisée." });
+      return res.status(403).json({ error: "This request is not authorised." });
     next();
   });
   router.use((req, res, next) =>
@@ -54,8 +54,8 @@ export function createAuthRouter(auth, { secure = false } = {}) {
       throw httpError(
         400,
         registration
-          ? "Nom, email valide et mot de passe de 12 à 128 caractères requis."
-          : "Email et mot de passe requis.",
+          ? "Enter your name, a valid email address and a password of 12–128 characters."
+          : "Email and password are required.",
       );
     return { email, password, name };
   };

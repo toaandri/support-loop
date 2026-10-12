@@ -49,17 +49,16 @@ export default function AdminDocuments({ onUnauthorized }) {
       )}
       <div className="admin-data-grid">
         <div className="panel">
-          <h2>Informations publiées</h2>
+          <h2>Published information</h2>
           <p className="muted">
-            Vos articles apparaissent dans le centre d’aide et alimentent les
-            réponses de l’assistant.
+            Your articles appear in the help centre and inform assistant responses.
           </p>
           {rows.map((row) => (
             <details className="admin-document" key={row.id}>
               <summary>
                 <FileText size={17} />
                 {row.content.split("\n")[0].replace(/^#\s*/, "")}
-                <span className="badge">Publié</span>
+                <span className="badge">Published</span>
               </summary>
               <p>{row.content}</p>
               {row.source.startsWith("manual/") && (
@@ -81,7 +80,7 @@ export default function AdminDocuments({ onUnauthorized }) {
                     }}
                   >
                     <Pencil size={15} />
-                    Modifier
+                    Edit
                   </button>
                   <button
                     className="secondary"
@@ -89,13 +88,12 @@ export default function AdminDocuments({ onUnauthorized }) {
                     onClick={() => setRemoving(row.source)}
                   >
                     <X size={15} />
-                    Retirer
+                    Withdraw
                   </button>
                   {removing === row.source && (
                     <div className="document-removal">
                       <p>
-                        Retirer cet article du centre d’aide et des réponses de
-                        l’assistant ?
+                        Remove this article from the help centre and assistant responses?
                       </p>
                       <button
                         disabled={busy}
@@ -107,16 +105,16 @@ export default function AdminDocuments({ onUnauthorized }) {
                             );
                             setRemoving("");
                             if (draft.source === row.source) setDraft(empty);
-                          }, "Article retiré.")
+                          }, "Article removed.")
                         }
                       >
-                        Confirmer le retrait
+                        Confirm removal
                       </button>
                       <button
                         className="secondary"
                         onClick={() => setRemoving("")}
                       >
-                        Annuler
+                        Cancel
                       </button>
                     </div>
                   )}
@@ -126,8 +124,7 @@ export default function AdminDocuments({ onUnauthorized }) {
           ))}
           {!rows.length && (
             <p className="muted">
-              Aucun article publié. Commencez par les informations essentielles
-              à vos clients.
+              No published articles. Start with the information your customers need most.
             </p>
           )}
         </div>
@@ -149,14 +146,14 @@ export default function AdminDocuments({ onUnauthorized }) {
                 setDraft(empty);
               },
               draft.source
-                ? "Article mis à jour."
-                : "Article publié dans le centre d’aide.",
+                ? "Article updated."
+                : "Article published in the help centre.",
             );
           }}
         >
-          <h2>{draft.source ? "Modifier l’article" : "Publier un article"}</h2>
+          <h2>{draft.source ? "Edit article" : "Publish an article"}</h2>
           <label>
-            Titre
+            Title
             <input
               required
               maxLength={120}
@@ -164,13 +161,13 @@ export default function AdminDocuments({ onUnauthorized }) {
               onChange={(event) =>
                 setDraft({ ...draft, title: event.target.value })
               }
-              placeholder="Une information utile à vos clients"
+              placeholder="Useful information for your customers"
             />
           </label>
           <label>
-            Contenu
+            Content
             <textarea
-              aria-label="Contenu"
+              aria-label="Content"
               required
               rows={10}
               maxLength={20000}
@@ -178,16 +175,15 @@ export default function AdminDocuments({ onUnauthorized }) {
               onChange={(event) =>
                 setDraft({ ...draft, content: event.target.value })
               }
-              placeholder="Rédigez une réponse précise et applicable à votre activité."
+              placeholder="Write a clear answer relevant to your business."
             />
           </label>
           <p className="muted">
-            Publiez des informations générales. Les détails d’un dossier client
-            restent dans sa conversation.
+            Publish general information. Details about a customer case belong in its conversation.
           </p>
           <button disabled={busy}>
             <Check size={16} />
-            {draft.source ? "Enregistrer" : "Publier"}
+            {draft.source ? "Save" : "Publish"}
           </button>
           {draft.source && (
             <button
@@ -196,7 +192,7 @@ export default function AdminDocuments({ onUnauthorized }) {
               onClick={() => setDraft(empty)}
             >
               <Plus size={15} />
-              Nouvel article
+              New article
             </button>
           )}
         </form>

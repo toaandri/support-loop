@@ -5,6 +5,7 @@ handling and reviewed knowledge publication, without fabricating AI responses.
 """
 import argparse
 import io
+import json
 import os
 from pathlib import Path
 import shutil
@@ -49,19 +50,43 @@ def run(media):
     if not os.getenv('TEST_DATABASE_URL'):
         raise RuntimeError('Set TEST_DATABASE_URL to a dedicated test PostgreSQL connection.')
     parts = urlsplit(os.environ['TEST_DATABASE_URL'])
-    database = urlunsplit((parts.scheme, parts.netloc, '/supportloop_portal_test', '', ''))
+    database = urlunsplit((parts.scheme, parts.netloc, '/' + os.environ.get('PORTAL_TEST_DATABASE_NAME', 'supportloop_portal_test'), '', ''))
     env = {**os.environ, 'DATABASE_URL': database, 'AGENT_MODE': 'groq', 'STORAGE_MODE': 'postgres',
            'AUTH_MODE': 'session', 'DEMO_MODE': 'false', 'GROQ_API_KEY': '', 'OPENAI_API_KEY': '',
            'GROQ_MODEL': 'openai/gpt-oss-20b', 'ADMIN_EMAIL': 'portal-team@example.test',
-           'ADMIN_PASSWORD': PASSWORD, 'ADMIN_NAME': 'Équipe SupportLoop', 'COOKIE_SECURE': 'false',
+           'ADMIN_PASSWORD': PASSWORD, 'ADMIN_NAME': "SupportLoop team", 'COOKIE_SECURE': 'false',
            'HOST': '127.0.0.1', 'PORT': str(BACKEND), 'VITE_API_BASE_URL': '', 'VITE_PROXY_TARGET': f'http://127.0.0.1:{BACKEND}',
            'BRAND_NAME': 'SupportLoop', 'CUSTOMER_API_KEY': '', 'SUPPORT_ADMIN_KEY': ''}
     MEDIA.mkdir(parents=True, exist_ok=True)
     LOGS.mkdir(parents=True, exist_ok=True)
     fixture('prepare', env)
     frames, tour, errors = [], [], []
+    accessibility = []
     def shot(page, name):
         overflow(page)
+        if os.getenv('AXE_CORE_PATH'):
+            skip = page.get_by_role('link', name='Skip to content', exact=True)
+            if skip.count():
+                current_url = page.url
+                page.keyboard.press('Tab')
+                skip.focus()
+                page.keyboard.press('Enter')
+                assert page.url == current_url, 'Skipping content must not change the hash-based route'
+                assert page.evaluate('document.activeElement.tagName') == 'MAIN'
+                page.evaluate('window.scrollTo(0, 0)')
+            for history in page.get_by_role('log', name='Message history').all():
+                if history.is_visible():
+                    page.keyboard.press('Tab')
+                    history.focus()
+                    assert history.evaluate('(node) => document.activeElement === node')
+                    assert history.evaluate('(node) => parseFloat(getComputedStyle(node).outlineWidth) >= 2')
+            page.add_script_tag(path=os.environ['AXE_CORE_PATH'])
+            report = page.evaluate("""async () => {
+                const r = await axe.run(document, {runOnly: {type: 'tag', values: ['wcag2a','wcag2aa','wcag21aa','wcag22aa']}});
+                return {url: location.pathname, violations: r.violations.map(v => ({id:v.id, impact:v.impact, description:v.description, nodes:v.nodes.map(n => ({target:n.target, html:n.html, summary:n.failureSummary}))}))};
+            }""")
+            accessibility.append({'screen': name, **report})
+            (LOGS / 'accessibility.json').write_text(json.dumps(accessibility, indent=2), encoding='utf-8')
         if media:
             page.screenshot(path=str(MEDIA / name), full_page=True, animations='disabled')
             if name in ['portal-home.png','portal-help.png','portal-catalog.png','portal-admin-conversations.png','portal-admin-knowledge.png','portal-admin-dashboard.png']:
@@ -85,39 +110,39 @@ def run(media):
                 for page in [client,team]:
                     page.on('pageerror', lambda error: errors.append(str(error)))
                 client.goto(BASE)
-                expect(client.get_by_role('heading', name='Des réponses claires. Un suivi qui continue.')).to_be_visible()
+                expect(client.get_by_role('heading', name="Clear answers. Support that stays with you.")).to_be_visible()
                 shot(client,'portal-home.png')
                 frame(client)
-                client.get_by_role('button',name='Mon espace',exact=True).click()
-                client.get_by_role('button',name='Créer un compte',exact=True).click()
-                client.get_by_label('Votre nom',exact=True).fill('Amélie Laurent')
-                client.get_by_label('Adresse email',exact=True).fill('portal-client@example.test')
-                client.get_by_label('Mot de passe',exact=True).fill(PASSWORD)
-                client.get_by_role('button',name='Créer mon compte',exact=True).click()
+                client.get_by_role('button',name="My account",exact=True).click()
+                client.get_by_role('button',name="Create an account",exact=True).click()
+                client.get_by_label("Your name",exact=True).fill('Amélie Laurent')
+                client.get_by_label("Email address",exact=True).fill('portal-client@example.test')
+                client.get_by_label("Password",exact=True).fill(PASSWORD)
+                client.get_by_role('button',name="Create my account",exact=True).click()
                 expect(client.get_by_role('button',name='Amélie',exact=True)).to_be_visible()
                 client.reload()
                 expect(client.get_by_role('button',name='Amélie',exact=True)).to_be_visible()
                 client.goto(BASE+'/admin')
-                expect(client.get_by_text('Ce compte ne dispose pas d’un accès administrateur.')).to_be_visible()
+                expect(client.get_by_text("This account does not have administrator access.")).to_be_visible()
                 client.goto(BASE+'/#home')
                 team.goto(BASE+'/admin')
-                team.get_by_label('Adresse email',exact=True).fill('portal-team@example.test')
-                team.get_by_label('Mot de passe',exact=True).fill(PASSWORD)
-                team.get_by_role('button',name='Se connecter',exact=True).click()
-                expect(team.get_by_role('heading',name='Vue d’ensemble',exact=True)).to_be_visible()
+                team.get_by_label("Email address",exact=True).fill('portal-team@example.test')
+                team.get_by_label("Password",exact=True).fill(PASSWORD)
+                team.get_by_role('button',name="Sign in",exact=True).click()
+                expect(team.get_by_role('heading',name="Overview",exact=True)).to_be_visible()
                 print('Accounts, persistence and administrator role checked.',flush=True)
                 # Publishing, editing and retracting public help articles.
-                team.get_by_role('button',name='Centre d’aide',exact=True).click()
-                team.get_by_label('Titre',exact=True).fill('Comment contacter notre équipe ?')
-                team.get_by_label('Contenu',exact=True).fill('Créez une demande depuis votre espace. Retrouvez les réponses dans votre historique, même après la résolution.')
-                team.get_by_role('button',name='Publier',exact=True).click()
-                expect(team.get_by_text('Article publié dans le centre d’aide.',exact=True)).to_be_visible()
+                team.get_by_role('button',name="Help centre",exact=True).click()
+                team.get_by_label("Title",exact=True).fill('Comment contacter notre équipe ?')
+                team.get_by_label("Content",exact=True).fill('Créez une demande depuis votre espace. Retrouvez les réponses dans votre historique, même après la résolution.')
+                team.get_by_role('button',name="Publish",exact=True).click()
+                expect(team.get_by_text("Article published in the help centre.",exact=True)).to_be_visible()
                 document=team.locator('.admin-document').first
                 document.locator('summary').click()
-                document.get_by_role('button',name='Modifier',exact=True).click()
-                team.get_by_label('Contenu',exact=True).fill('Créez une demande depuis votre espace personnel. Votre historique et chaque réponse restent disponibles après la résolution.')
-                team.get_by_role('button',name='Enregistrer',exact=True).click()
-                expect(team.get_by_text('Article mis à jour.',exact=True)).to_be_visible()
+                document.get_by_role('button',name='Edit',exact=True).click()
+                team.get_by_label("Content",exact=True).fill('Créez une demande depuis votre espace personnel. Votre historique et chaque réponse restent disponibles après la résolution.')
+                team.get_by_role('button',name="Save",exact=True).click()
+                expect(team.get_by_text("Article updated.",exact=True)).to_be_visible()
                 client.goto(BASE+'/#help')
                 expect(client.get_by_text('Comment contacter notre équipe ?',exact=True)).to_be_visible()
                 client.locator('.help-article summary').first.click()
@@ -125,15 +150,15 @@ def run(media):
                 shot(client,'portal-help.png')
                 print('Help article publication and updates checked.',flush=True)
                 # Catalog records support arbitrary activities and identifiers.
-                team.get_by_role('button',name='Catalogue',exact=True).click()
-                team.get_by_role('button',name='Ajouter un produit',exact=True).click()
-                team.get_by_label('Référence',exact=True).fill('SERVICE-ACCOMPAGNEMENT')
-                team.get_by_label('Nom',exact=True).fill('Accompagnement personnalisé')
-                team.get_by_label('Description',exact=True).fill('Un rendez-vous pour faire le point sur votre situation et préparer la prochaine étape.')
-                team.get_by_label('Prix (€)',exact=True).fill('45')
-                team.get_by_label('Stock',exact=True).fill('8')
-                team.get_by_role('button',name='Enregistrer',exact=True).click()
-                expect(team.get_by_text('Produit enregistré.',exact=True)).to_be_visible()
+                team.get_by_role('button',name="Catalogue",exact=True).click()
+                team.get_by_role('button',name="Add a product",exact=True).click()
+                team.get_by_label("Reference",exact=True).fill('SERVICE-ACCOMPAGNEMENT')
+                team.get_by_label("Name",exact=True).fill('Accompagnement personnalisé')
+                team.get_by_label("Description",exact=True).fill('Un rendez-vous pour faire le point sur votre situation et préparer la prochaine étape.')
+                team.get_by_label("Price (€)",exact=True).fill('45')
+                team.get_by_label("Stock",exact=True).fill('8')
+                team.get_by_role('button',name="Save",exact=True).click()
+                expect(team.get_by_text("Product saved.",exact=True)).to_be_visible()
                 client.goto(BASE+'/#catalog')
                 expect(client.get_by_role('heading',name='Accompagnement personnalisé',exact=True)).to_be_visible()
                 shot(client,'portal-catalog.png')
@@ -143,32 +168,32 @@ def run(media):
                 expect(client.get_by_text('ORD-PORTAL-001',exact=True)).to_be_visible()
                 # Missing Groq key yields a genuine human handoff.
                 client.goto(BASE+'/#support')
-                client.get_by_label('Message client',exact=True).fill('Comment fonctionne le suivi personnalisé ?')
-                client.get_by_role('button',name='Envoyer',exact=True).click()
-                expect(client.locator('.chat-header .badge')).to_have_text('En attente')
+                client.get_by_label("Customer message",exact=True).fill('Comment fonctionne le suivi personnalisé ?')
+                client.get_by_role('button',name="Send",exact=True).click()
+                expect(client.locator('.chat-header .badge')).to_have_text("Waiting")
                 frame(client)
                 shot(client,'portal-chat.png')
-                team.get_by_role('button',name='Conversations',exact=True).click()
+                team.get_by_role('button',name="Conversations",exact=True).click()
                 row=team.locator('.queue-row').filter(has_text='Comment fonctionne le suivi personnalisé').first
                 expect(row).to_be_visible()
                 row.click()
-                team.get_by_role('button',name='Prendre en charge',exact=True).click()
-                team.get_by_label('Réponse conseiller',exact=True).fill('Le suivi personnalisé comprend trois rendez-vous. Chaque rendez-vous est préparé avec votre conseiller.')
-                team.get_by_role('button',name='Envoyer',exact=True).click()
+                team.get_by_role('button',name="Take over",exact=True).click()
+                team.get_by_label("Advisor reply",exact=True).fill('Le suivi personnalisé comprend trois rendez-vous. Chaque rendez-vous est préparé avec votre conseiller.')
+                team.get_by_role('button',name="Send",exact=True).click()
                 expect(client.locator('.message.human').last).to_contain_text('trois rendez-vous')
                 frame(team)
                 shot(team,'portal-admin-conversations.png')
-                team.get_by_role('button',name='Résoudre',exact=True).click()
-                expect(team.locator('.case-header .badge')).to_have_text('Résolue')
-                team.get_by_role('button',name='Connaissances',exact=True).click()
+                team.get_by_role('button',name="Resolve",exact=True).click()
+                expect(team.locator('.case-header .badge')).to_have_text("Resolved")
+                team.get_by_role('button',name="Knowledge",exact=True).click()
                 team.locator('.queue-row').filter(has_text='suivi personnalisé').first.click()
-                team.get_by_role('button',name='Réviser',exact=True).click()
-                team.get_by_role('button',name='Éditer',exact=True).click()
-                team.get_by_label('Sujet',exact=True).fill('suivi_personnalise')
-                team.get_by_label('Quand appliquer cette règle',exact=True).fill('Lorsqu’un client demande le contenu du suivi personnalisé.')
-                team.get_by_label('Réponse générale',exact=True).fill('Le suivi personnalisé comprend trois rendez-vous, préparés avec un conseiller.')
-                team.get_by_role('button',name='Sauvegarder',exact=True).click()
-                team.get_by_role('button',name='Approuver',exact=True).click()
+                team.get_by_role('button',name="Review",exact=True).click()
+                team.get_by_role('button',name="Edit",exact=True).click()
+                team.get_by_label("Topic",exact=True).fill('suivi_personnalise')
+                team.get_by_label("When this rule applies",exact=True).fill('Lorsqu’un client demande le contenu du suivi personnalisé.')
+                team.get_by_label("General answer",exact=True).fill('Le suivi personnalisé comprend trois rendez-vous, préparés avec un conseiller.')
+                team.get_by_role('button',name="Save",exact=True).click()
+                team.get_by_role('button',name="Approve",exact=True).click()
                 expect(team.locator('.case-header .badge')).to_have_text('Active')
                 frame(team)
                 shot(team,'portal-admin-knowledge.png')
@@ -176,13 +201,13 @@ def run(media):
                 # Published general knowledge remains private to retrieval, not the public articles endpoint.
                 public_articles=client.request.get(BASE+'/api/articles').json()['articles']
                 assert all('suivi_personnalise' not in a['content'] for a in public_articles)
-                team.get_by_role('button',name='Réglages',exact=True).click()
-                team.get_by_role('button',name='Tester la connexion',exact=True).click()
+                team.get_by_role('button',name="Settings",exact=True).click()
+                team.get_by_role('button',name="Test connection",exact=True).click()
                 expect(team.get_by_role('alert')).to_contain_text('GROQ_API_KEY')
-                team.get_by_label('Seuil de confiance',exact=True).fill('0.9')
-                team.get_by_role('button',name='Enregistrer',exact=True).click()
-                expect(team.get_by_text('Seuil enregistré.',exact=True)).to_be_visible()
-                team.get_by_role('button',name='Vue d’ensemble',exact=True).click()
+                team.get_by_label("Confidence threshold",exact=True).fill('0.9')
+                team.get_by_role('button',name="Save",exact=True).click()
+                expect(team.get_by_text("Threshold saved.",exact=True)).to_be_visible()
+                team.get_by_role('button',name="Overview",exact=True).click()
                 expect(team.locator('.kpi-value').first).to_have_text('1')
                 shot(team,'portal-admin-dashboard.png')
                 frame(team)
@@ -201,24 +226,28 @@ def run(media):
                 team.set_viewport_size({'width':390,'height':844})
                 for view in ['dashboard','conversations','knowledge','documents','products','customers','settings']:
                     team.goto(BASE+'/admin#'+view)
-                    expect(team.get_by_role('heading',name={'dashboard':'Vue d’ensemble','conversations':'Conversations','knowledge':'Connaissances','documents':'Centre d’aide','products':'Catalogue','customers':'Clients','settings':'Réglages'}[view],exact=True).first).to_be_visible()
+                    expect(team.get_by_role('heading',name={'dashboard':"Overview",'conversations':"Conversations",'knowledge':"Knowledge",'documents':"Help centre",'products':"Catalogue",'customers':"Customers",'settings':"Settings"}[view],exact=True).first).to_be_visible()
                     overflow(team)
                 shot(team,'portal-admin-mobile.png')
-                client.get_by_role('button',name='Déconnexion',exact=True).click()
-                expect(client.get_by_role('button',name='Mon espace',exact=True)).to_be_visible()
+                client.get_by_role('button',name="Sign out",exact=True).click()
+                expect(client.get_by_role('button',name="My account",exact=True)).to_be_visible()
                 client.goto(BASE+'/#requests')
-                expect(client.get_by_role('heading',name='Se connecter',exact=True)).to_be_visible()
+                expect(client.get_by_role('heading',name="Sign in",exact=True)).to_be_visible()
                 # Another client never sees the first client's records.
                 second=browser.new_context().new_page()
                 second.goto(BASE+'/#login')
-                second.get_by_role('button',name='Créer un compte',exact=True).click()
-                second.get_by_label('Votre nom').fill('Autre client')
-                second.get_by_label('Adresse email').fill('portal-other@example.test')
-                second.get_by_label('Mot de passe').fill(PASSWORD)
-                second.get_by_role('button',name='Créer mon compte',exact=True).click()
+                second.get_by_role('button',name="Create an account",exact=True).click()
+                second.get_by_label("Your name").fill('Autre client')
+                second.get_by_label("Email address").fill('portal-other@example.test')
+                second.get_by_label("Password").fill(PASSWORD)
+                second.get_by_role('button',name="Create my account",exact=True).click()
                 expect(second.get_by_role('button',name='Autre',exact=True)).to_be_visible()
                 second.goto(BASE+'/#requests')
                 expect(second.locator('.request-card')).to_have_count(0)
+                if accessibility:
+                    count = sum(len(report['violations']) for report in accessibility)
+                    print(f"Accessibility: {len(accessibility)} screens checked, {count} rule violations. See .superpowers/portal-check/accessibility.json.")
+                    assert count == 0, 'Accessibility issues require review.'
                 assert not errors, '\n'.join(errors)
                 browser.close()
             if media and frames:

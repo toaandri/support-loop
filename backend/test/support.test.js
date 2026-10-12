@@ -45,7 +45,7 @@ describe('V4 bounded tools', () => {
     const { app } = setup();
     const response = await post(app, 'Stock PRD-002 ?').expect(200);
     expect(response.body.status).toBe('ai');
-    expect(response.body.message.content).toContain('indisponible');
+    expect(response.body.message.content).toContain('unavailable');
     const detail = await request(app).get('/api/support/conversations/test-chat').expect(200);
     expect(detail.body.traces[0]).toMatchObject({ name: 'check_stock', status: 'success', result: { stock: 0 } });
   });

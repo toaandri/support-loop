@@ -20,7 +20,7 @@ export function createSupportRouter(service, { demoMode = true, customerKey, adm
   router.get('/health', (req, res) => res.json({ status: 'ok', service: 'support-loop-backend', mode, demoMode, sessionAuth, brandName, aiModel, version: 9 }));
   router.use('/support', (req, res, next) => {
     if (matches(req.get('x-support-key'),adminKey)) return next();
-    if (sessionAuth) return req.user?.role === 'admin' ? next() : res.status(req.user ? 403 : 401).json({error:'Accès administrateur requis.'});
+    if (sessionAuth) return req.user?.role === 'admin' ? next() : res.status(req.user ? 403 : 401).json({error:"Administrator access is required."});
     if (matches(req.get('x-support-key'), adminKey) || (demoMode && !adminKey)) return next();
     return res.status(401).json({ error: 'Support access key required.' });
   });
@@ -52,23 +52,23 @@ export function createSupportRouter(service, { demoMode = true, customerKey, adm
     if (!text(id,64)||!/^[A-Za-z0-9_-]+$/.test(id)||!text(name,120)||!text(description,2000)||
         !Number.isSafeInteger(price_cents)||price_cents<0||!Number.isSafeInteger(stock)||stock<0||
         typeof image_url!=='string'||image_url.length>500|| (image_url && !/^\/products\/[A-Za-z0-9_-]+\.svg$/.test(image_url)))
-      throw httpError(400,'Données produit invalides.');
-    if (!service.store.saveProduct) throw httpError(400,'Le catalogue nécessite PostgreSQL.');
+      throw httpError(400,"Invalid product details.");
+    if (!service.store.saveProduct) throw httpError(400,"The catalogue requires PostgreSQL.");
     res.json({product:await service.store.saveProduct({id,name:name.trim(),description:description.trim(),price_cents,stock,image_url})});
   }));
   router.get('/support/documents', wrap(async (req,res) => res.json({documents:await service.documents()})));
   router.post('/support/documents', wrap(async (req,res) => {
     const {title,content}=req.body||{};
-    if(!text(title,120)||!text(content,20000)) throw httpError(400,'Titre et contenu requis.');
+    if(!text(title,120)||!text(content,20000)) throw httpError(400,"A title and content are required.");
     res.status(201).json(await service.publishDocument({title:title.trim(),content:content.trim()}));
   }));
   const manualSource = (id) => {
-    if(!/^[0-9a-f-]{36}\.md$/i.test(id)) throw httpError(400,'Référence d’article invalide.');
+    if(!/^[0-9a-f-]{36}\.md$/i.test(id)) throw httpError(400,"Invalid article reference.");
     return `manual/${id}`;
   };
   router.put('/support/documents/:id',wrap(async(req,res)=>{
     const {title,content}=req.body||{};
-    if(!text(title,120)||!text(content,20000)) throw httpError(400,'Titre et contenu requis.');
+    if(!text(title,120)||!text(content,20000)) throw httpError(400,"A title and content are required.");
     res.json(await service.publishDocument({title:title.trim(),content:content.trim(),source:manualSource(req.params.id)}));
   }));
   router.delete('/support/documents/:id',wrap(async(req,res)=>res.json(await service.removeDocument(manualSource(req.params.id)))));
@@ -114,7 +114,7 @@ export function createSupportRouter(service, { demoMode = true, customerKey, adm
     if (sessionAuth && req.method==='GET' && ['/products','/articles'].includes(req.path)) return next();
     if (sessionAuth) {
       if(matches(req.get('x-customer-key'),customerKey)){req.customerId=customerId;return next();}
-      if (req.user?.role!=='customer') return res.status(req.user ? 403 : 401).json({error:'Connexion client requise.'});
+      if (req.user?.role!=='customer') return res.status(req.user ? 403 : 401).json({error:"Customer sign-in is required."});
       req.customerId=req.user.customerId; return next();
     }
     if (matches(req.get('x-customer-key'), customerKey) || (demoMode && !customerKey)) return next();

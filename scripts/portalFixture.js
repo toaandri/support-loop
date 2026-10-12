@@ -3,17 +3,19 @@ import pg from "../backend/node_modules/pg/lib/index.js";
 const base = process.env.TEST_DATABASE_URL;
 if (!base) throw new Error("TEST_DATABASE_URL is required.");
 const target = new URL(base);
-target.pathname = "/supportloop_portal_test";
+const databaseName = process.env.PORTAL_TEST_DATABASE_NAME || "supportloop_portal_test";
+if (!/^supportloop_portal_test(?:_[a-z0-9]+)?$/.test(databaseName)) throw new Error("Invalid test database name.");
+target.pathname = "/" + databaseName;
 const admin = new pg.Pool({ connectionString: base });
 if (process.argv[2] === "prepare") {
   if (
     !(
       await admin.query(
-        "SELECT 1 FROM pg_database WHERE datname='supportloop_portal_test'",
+        "SELECT 1 FROM pg_database WHERE datname=$1", [databaseName],
       )
     ).rowCount
   )
-    await admin.query("CREATE DATABASE supportloop_portal_test");
+    await admin.query(`CREATE DATABASE "${databaseName}"`);
 }
 await admin.end();
 const pool = new pg.Pool({ connectionString: target.toString() });

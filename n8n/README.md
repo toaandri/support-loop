@@ -75,7 +75,7 @@ Exemple d’appel après activation :
 ```bash
 curl -X POST http://localhost:5678/webhook/support-loop/incoming-message \
   -H 'Content-Type: application/json' \
-  -H 'x-webhook-key: YOUR_WEBHOOK_KEY' \
+  -H "x-webhook-key: ${N8N_WEBHOOK_API_KEY:?Set N8N_WEBHOOK_API_KEY locally}" \
   -d '{"conversationId":"n8n-example","message":"Stock PRD-001 ?","channel":"n8n"}'
 ```
 

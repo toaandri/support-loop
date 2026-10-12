@@ -92,11 +92,11 @@ export default function AdminSettings({ tab, health, onUnauthorized }) {
         {feedback}
         <div className="section-heading">
           <p className="muted">
-            Gérez les informations consultées par les clients et l’assistant.
+            Manage information available to customers and the assistant.
           </p>
           <button onClick={() => setProduct({ ...blankProduct })}>
             <Plus size={16} />
-            Ajouter un produit
+            Add a product
           </button>
         </div>
         <div className="admin-data-grid">
@@ -111,15 +111,15 @@ export default function AdminSettings({ tab, health, onUnauthorized }) {
                 <span>
                   <strong>{row.name}</strong>
                   <small>
-                    {row.id} · {money(row.price_cents)} · Stock : {row.stock}
+                    {row.id} · {money(row.price_cents)} · Stock: {row.stock}
                   </small>
                 </span>
-                <span className="badge">Modifier</span>
+                <span className="badge">Edit</span>
               </button>
             ))}
             {!rows.length && (
               <p className="muted">
-                Votre catalogue est vide. Ajoutez un produit pour commencer.
+                Your catalogue is empty. Add a product to get started.
               </p>
             )}
           </div>
@@ -135,12 +135,12 @@ export default function AdminSettings({ tab, health, onUnauthorized }) {
                     body: product,
                   });
                   setProduct(null);
-                }, "Produit enregistré.");
+                }, "Product saved.");
               }}
             >
-              <h2>{product.id ? "Modifier le produit" : "Nouveau produit"}</h2>
+              <h2>{product.id ? "Edit product" : "New product"}</h2>
               <label>
-                Référence
+                Reference
                 <input
                   required
                   disabled={product.existing}
@@ -153,7 +153,7 @@ export default function AdminSettings({ tab, health, onUnauthorized }) {
                 />
               </label>
               <label>
-                Nom
+                Name
                 <input
                   required
                   maxLength={120}
@@ -176,7 +176,7 @@ export default function AdminSettings({ tab, health, onUnauthorized }) {
               </label>
               <div className="form-two-columns">
                 <label>
-                  Prix (€)
+                  Price (€)
                   <input
                     type="number"
                     required
@@ -217,21 +217,21 @@ export default function AdminSettings({ tab, health, onUnauthorized }) {
                     setProduct({ ...product, image_url: e.target.value })
                   }
                 >
-                  <option value="">Illustration neutre</option>
-                  <option value="/products/headphones.svg">Casque</option>
-                  <option value="/products/keyboard.svg">Clavier</option>
+                  <option value="">Neutral illustration</option>
+                  <option value="/products/headphones.svg">Headphones</option>
+                  <option value="/products/keyboard.svg">Keyboard</option>
                 </select>
               </label>
               <button disabled={busy}>
                 <Check size={16} />
-                Enregistrer
+                Save
               </button>
               <button
                 type="button"
                 className="secondary"
                 onClick={() => setProduct(null)}
               >
-                Fermer
+                Close
               </button>
             </form>
           )}
@@ -246,17 +246,17 @@ export default function AdminSettings({ tab, health, onUnauthorized }) {
         {feedback}
         <section className="panel">
           <h2>
-            <Users size={18} /> Clients
+            <Users size={18} /> Customers
           </h2>
-          <p className="muted">Les comptes clients et leur activité.</p>
+          <p className="muted">Customer accounts and their activity.</p>
           <div className="admin-table-wrap">
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th>Client</th>
+                  <th>Customer</th>
                   <th>Email</th>
-                  <th>Commandes</th>
-                  <th>Demandes</th>
+                  <th>Orders</th>
+                  <th>Requests</th>
                 </tr>
               </thead>
               <tbody>
@@ -272,7 +272,7 @@ export default function AdminSettings({ tab, health, onUnauthorized }) {
             </table>
           </div>
           {!rows.length && (
-            <p className="muted">Aucun compte client pour le moment.</p>
+            <p className="muted">No customer accounts yet.</p>
           )}
         </section>
       </>
@@ -285,13 +285,12 @@ export default function AdminSettings({ tab, health, onUnauthorized }) {
           <span className="settings-icon">
             <Cpu size={25} />
           </span>
-          <h2>Assistant IA</h2>
+          <h2>AI assistant</h2>
           <p className="muted">
-            Fournisseur : Groq · Modèle : {health.aiModel || "Non configuré"}
+            Provider: Groq · Model: {health.aiModel || "Not configured"}
           </p>
           <p>
-            Les réponses utilisent les documents publiés, les connaissances
-            validées et les données du client.
+            Responses use published documents, approved knowledge and customer data.
           </p>
           <button
             className="secondary"
@@ -303,15 +302,14 @@ export default function AdminSettings({ tab, health, onUnauthorized }) {
                   support: true,
                   body: {},
                 });
-              }, "Connexion Groq vérifiée.")
+              }, "Groq connection verified.")
             }
           >
             <RefreshCw size={16} />
-            Tester la connexion
+            Test connection
           </button>
           <p className="muted">
-            La clé est configurée sur le serveur dans GROQ_API_KEY. L’offre
-            gratuite reste soumise aux quotas de votre compte.
+            Set the key on the server in GROQ_API_KEY. The free plan is subject to your account quotas.
           </p>
         </section>
         <form
@@ -325,20 +323,19 @@ export default function AdminSettings({ tab, health, onUnauthorized }) {
                   support: true,
                   body: { threshold: Number(threshold) },
                 }),
-              "Seuil enregistré.",
+              "Threshold saved.",
             );
           }}
         >
           <span className="settings-icon">
             <ShieldCheck size={25} />
           </span>
-          <h2>Relais humain</h2>
+          <h2>Human handoff</h2>
           <p className="muted">
-            Sous ce seuil de confiance, une demande est transférée à votre
-            équipe.
+            Requests below this confidence threshold are transferred to your team.
           </p>
           <label>
-            Seuil de confiance
+            Confidence threshold
             <input
               type="number"
               min="0"
@@ -350,12 +347,11 @@ export default function AdminSettings({ tab, health, onUnauthorized }) {
             />
           </label>
           <p className="muted">
-            Les actions sensibles et les demandes explicites d’un conseiller
-            sont toujours transférées.
+            Sensitive actions and explicit requests for an advisor are always transferred.
           </p>
           <button disabled={busy}>
             <Check size={16} />
-            Enregistrer
+            Save
           </button>
         </form>
       </div>

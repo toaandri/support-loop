@@ -6,7 +6,7 @@ export function createRagAgent({ knowledgeStore, provider, minSimilarity = 0.35 
     });
     if (!sources.length) {
       return {
-        content: "Je n'ai pas trouve d'information pertinente dans la base de connaissances. Pouvez-vous preciser votre demande ?",
+        content: "No relevant information was found in the knowledge base. Could you provide more details?",
         source: 'knowledge-base', category: 'no-knowledge', sources: []
       };
     }

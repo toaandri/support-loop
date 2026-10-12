@@ -74,7 +74,7 @@ export function createAuthService(databaseUrl) {
       } catch (error) {
         await client.query("ROLLBACK");
         if (error.code === "23505")
-          throw httpError(409, "Cette adresse email est déjà utilisée.");
+          throw httpError(409, "This email address is already in use.");
         throw error;
       } finally {
         client.release();

@@ -21,20 +21,27 @@ import AdminSettings from "./AdminSettings.jsx";
 import CustomerPortal from "./CustomerPortal.jsx";
 
 const adminNav = [
-  ["dashboard", "Vue d’ensemble", LayoutDashboard],
+  ["dashboard", "Overview", LayoutDashboard],
   ["conversations", "Conversations", MessagesSquare],
-  ["knowledge", "Connaissances", BookOpen],
-  ["documents", "Centre d’aide", FileText],
+  ["knowledge", "Knowledge", BookOpen],
+  ["documents", "Help centre", FileText],
   ["products", "Catalogue", Package],
-  ["customers", "Clients", Users],
-  ["settings", "Réglages", Settings],
+  ["customers", "Customers", Users],
+  ["settings", "Settings", Settings],
 ];
 const clientNav = [
-  ["home", "Accueil"],
-  ["help", "Centre d’aide"],
+  ["home", "Home"],
+  ["help", "Help centre"],
   ["catalog", "Catalogue"],
-  ["requests", "Mes demandes"],
+  ["requests", "My requests"],
 ];
+function skipToContent(event) {
+  event.preventDefault();
+  const target = document.getElementById(event.currentTarget.hash.slice(1));
+  target?.focus({ preventScroll: true });
+  target?.scrollIntoView({ block: "start", behavior: "auto" });
+}
+
 export default function PortalApp({ health }) {
   const admin = location.pathname.startsWith("/admin");
   const readView = () => {
@@ -97,7 +104,7 @@ export default function PortalApp({ health }) {
       <span>
         {health.brandName}
         <span className="brand-caption">
-          {admin ? "OPÉRATIONS DE SUPPORT" : "À VOTRE ÉCOUTE"}
+          {admin ? "Support operations" : "Here to help"}
         </span>
       </span>
     </a>
@@ -105,12 +112,13 @@ export default function PortalApp({ health }) {
   if (loading)
     return (
       <div className="app-unavailable" role="status">
-        Ouverture de votre espace…
+        Opening your workspace…
       </div>
     );
   if (admin)
     return (
       <div className="app-shell admin-app">
+        <a className="skip-link" href="#main-content" onClick={skipToContent}>Skip to content</a>
         <aside className="sidebar">
           {brand}
           <p className="nav-group">ADMINISTRATION</p>
@@ -129,7 +137,7 @@ export default function PortalApp({ health }) {
           </nav>
           <div className="sidebar-bottom">
             <a className="nav-item" href="/">
-              Voir le portail client <ArrowUpRight size={16} />
+              View customer portal <ArrowUpRight size={16} />
             </a>
             <div className="sidebar-profile">
               <span className="avatar">
@@ -137,7 +145,7 @@ export default function PortalApp({ health }) {
               </span>
               <div>
                 <strong>{user?.name || "Administration"}</strong>
-                <small>{user?.email || "Accès protégé"}</small>
+                <small>{user?.email || "Protected access"}</small>
               </div>
             </div>
           </div>
@@ -148,17 +156,17 @@ export default function PortalApp({ health }) {
               Administration <ArrowRight size={13} />
               <strong>
                 {adminNav.find(([key]) => key === view)?.[1] ||
-                  "Vue d’ensemble"}
+                  "Overview"}
               </strong>
             </div>
             {user && (
               <button className="secondary" onClick={logout}>
                 <LogOut size={15} />
-                Déconnexion
+                Sign out
               </button>
             )}
           </header>
-          <main className="page-content" id="main-content">
+          <main className="page-content" id="main-content" tabIndex={-1}>
             {error && (
               <p className="error" role="alert">
                 {error}
@@ -168,14 +176,14 @@ export default function PortalApp({ health }) {
               <>
                 <div className="page-heading">
                   <div>
-                    <span className="eyebrow">ESPACE ÉQUIPE</span>
+                    <span className="eyebrow">Team workspace</span>
                     <h1>
                       {adminNav.find(([key]) => key === view)?.[1] ||
-                        "Vue d’ensemble"}
+                        "Overview"}
                     </h1>
                   </div>
                   <span className="date-label">
-                    {new Date().toLocaleDateString("fr-FR", {
+                    {new Date().toLocaleDateString("en-GB", {
                       day: "numeric",
                       month: "long",
                       year: "numeric",
@@ -201,16 +209,16 @@ export default function PortalApp({ health }) {
             ) : (
               <div className="admin-auth">
                 <span className="eyebrow">
-                  {health.brandName.toUpperCase()} · ADMINISTRATION
+                  {health.brandName.toUpperCase()} · Administration
                 </span>
-                <h1>Votre équipe, au même endroit.</h1>
+                <h1>Your team, in one place.</h1>
                 <p>
-                  Connectez-vous pour gérer les demandes et les connaissances.
+                  Sign in to manage requests and knowledge.
                 </p>
                 {user ? (
                   <>
-                    <p>Ce compte ne dispose pas d’un accès administrateur.</p>
-                    <button onClick={logout}>Changer de compte</button>
+                    <p>This account does not have administrator access.</p>
+                    <button onClick={logout}>Switch account</button>
                   </>
                 ) : (
                   <AuthForm admin onLogin={onLogin} />
@@ -226,12 +234,12 @@ export default function PortalApp({ health }) {
     user?.role !== "customer";
   return (
     <div className="portal">
-      <a className="skip-link" href="#portal-main">
-        Aller au contenu
+      <a className="skip-link" href="#portal-main" onClick={skipToContent}>
+        Skip to content
       </a>
       <header className="portal-header">
         {brand}
-        <nav aria-label="Navigation client">
+        <nav aria-label="Customer navigation">
           {clientNav.map(([key, label]) => (
             <button
               key={key}
@@ -256,7 +264,7 @@ export default function PortalApp({ health }) {
               </button>
               <button
                 className="icon-button secondary"
-                aria-label="Déconnexion"
+                aria-label="Sign out"
                 onClick={logout}
               >
                 <LogOut size={16} />
@@ -270,7 +278,7 @@ export default function PortalApp({ health }) {
           ) : (
             <button className="secondary" onClick={() => navigate("login")}>
               <UserRound size={16} />
-              Mon espace
+              My account
             </button>
           )}
         </div>
@@ -284,38 +292,36 @@ export default function PortalApp({ health }) {
         {needsLogin || view === "login" ? (
           <div className="portal-auth">
             <div>
-              <span className="eyebrow">VOTRE ESPACE PERSONNEL</span>
+              <span className="eyebrow">Your personal workspace</span>
               <h1>
-                Retrouvez le fil
+                Keep track
                 <br />
-                de vos demandes.
+                of your requests.
               </h1>
               <p>
-                Un compte pour échanger avec notre équipe et suivre chaque
-                réponse.
+                An account to talk to our team and follow every answer.
               </p>
               <div className="auth-benefits">
                 <span>
                   <MessageCircle size={18} />
-                  Toutes vos conversations
+                  All your conversations
                 </span>
                 <span>
                   <Package size={18} />
-                  Le suivi de vos commandes
+                  Order tracking
                 </span>
                 <span>
                   <ShieldCheck size={18} />
-                  Vos informations restent privées
+                  Your information stays private
                 </span>
               </div>
             </div>
             {user?.role === "admin" ? (
               <div className="panel">
                 <p>
-                  Connectez-vous avec un compte client pour accéder à cet
-                  espace.
+                  Sign in with a customer account to access this workspace.
                 </p>
-                <button onClick={logout}>Changer de compte</button>
+                <button onClick={logout}>Switch account</button>
               </div>
             ) : (
               <AuthForm onLogin={onLogin} />
@@ -335,11 +341,11 @@ export default function PortalApp({ health }) {
         )}
       </main>
       <footer className="portal-footer">
-        <span>{health.brandName} · À votre écoute.</span>
+        <span>{health.brandName} · Here to help.</span>
         <div>
-          <a href="/#help">Centre d’aide</a>
-          <a href="/#requests">Mes demandes</a>
-          <a href="/admin">Espace équipe</a>
+          <a href="/#help">Help centre</a>
+          <a href="/#requests">My requests</a>
+          <a href="/admin">Team workspace</a>
         </div>
       </footer>
     </div>
@@ -360,13 +366,13 @@ function AuthForm({ admin = false, onLogin }) {
         body: Object.fromEntries(form),
       });
       if (admin && user.role !== "admin") {
-        setError("Ce compte ne dispose pas d’un accès administrateur.");
+        setError("This account does not have administrator access.");
         return;
       }
       onLogin(user);
     } catch (err) {
       setError(
-        err.status === 401 ? "Email ou mot de passe incorrect." : err.message,
+        err.status === 401 ? "Incorrect email or password." : err.message,
       );
     } finally {
       setBusy(false);
@@ -375,22 +381,22 @@ function AuthForm({ admin = false, onLogin }) {
   return (
     <form className="portal-login panel" onSubmit={submit}>
       <span className="eyebrow">
-        {admin ? "ACCÈS ÉQUIPE" : "ESPACE CLIENT"}
+        {admin ? "Team access" : "Customer workspace"}
       </span>
-      <h2>{register ? "Créer mon compte" : "Se connecter"}</h2>
+      <h2>{register ? "Create my account" : "Sign in"}</h2>
       <p>
         {register
-          ? "Retrouvez vos demandes et vos réponses, au même endroit."
-          : "Heureux de vous retrouver."}
+          ? "Your requests and answers, together."
+          : "Good to see you again."}
       </p>
       {register && (
         <label>
-          Votre nom
+          Your name
           <input name="name" autoComplete="name" maxLength={100} required />
         </label>
       )}
       <label>
-        Adresse email
+        Email address
         <input
           name="email"
           type="email"
@@ -400,7 +406,7 @@ function AuthForm({ admin = false, onLogin }) {
         />
       </label>
       <label>
-        Mot de passe
+        Password
         <input
           name="password"
           type="password"
@@ -410,7 +416,7 @@ function AuthForm({ admin = false, onLogin }) {
           required
         />
       </label>
-      {register && <small>Au moins 12 caractères.</small>}
+      {register && <small>At least 12 characters.</small>}
       {error && (
         <p className="error" role="alert">
           {error}
@@ -418,10 +424,10 @@ function AuthForm({ admin = false, onLogin }) {
       )}
       <button disabled={busy} type="submit">
         {busy
-          ? "Connexion en cours…"
+          ? "Signing in…"
           : register
-            ? "Créer mon compte"
-            : "Se connecter"}
+            ? "Create my account"
+            : "Sign in"}
         <ArrowRight size={16} />
       </button>
       {!admin && (
@@ -433,7 +439,7 @@ function AuthForm({ admin = false, onLogin }) {
             setError("");
           }}
         >
-          {register ? "J’ai déjà un compte" : "Créer un compte"}
+          {register ? "I already have an account" : "Create an account"}
         </button>
       )}
     </form>

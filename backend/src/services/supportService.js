@@ -17,7 +17,7 @@ export function createSupportService({ store, provider, knowledgeStore, knowledg
     const ticket = await repo.createTicket(state.messages.filter((item) => item.role === 'user').at(-1).content.slice(0, 200));
     state.status = 'waiting';
     state.escalation = { reason, confidence, sources, ticketId: ticket.id, createdAt: new Date().toISOString() };
-    return appendMessage(state, 'assistant', 'Votre demande a été transmise à un conseiller. Vous pouvez ajouter des précisions ici.',
+    return appendMessage(state, 'assistant', 'Your request has been sent to an advisor. You can add more details here.',
       { source: 'handoff', category: reason, confidence, sources });
   }
   return {
@@ -69,10 +69,10 @@ export function createSupportService({ store, provider, knowledgeStore, knowledg
           if (action === 'reply') appendMessage(state, 'human', content, { agentName, source: 'human' });
           else if (action === 'resolve') {
             state.status = 'resolved';
-            appendMessage(state, 'system', 'Conversation résolue par le conseiller.', { agentName, action: 'resolve' });
+            appendMessage(state, 'system', 'Conversation resolved by the advisor.', { agentName, action: 'resolve' });
           } else if (action === 'resume') {
             state.status = 'ai'; state.assignedTo = null; state.escalation = null;
-            appendMessage(state, 'system', 'Le support automatique reprend la conversation.', { agentName });
+            appendMessage(state, 'system', 'Automatic support resumes the conversation.', { agentName });
           } else throw httpError(400, 'Invalid action.');
         }
         state.updatedAt = new Date().toISOString();
@@ -125,7 +125,7 @@ export function createSupportService({ store, provider, knowledgeStore, knowledg
       return knowledgeAction(id, async () => {
         const entry = await store.getLearnedKnowledge(id);
         if (!['new', 'review', 'approved'].includes(entry.status)) throw httpError(409, 'Only pending entries can be approved.');
-        if (providerRef?.name === 'groq' && !entry.extracted_rule) throw httpError(409, 'Rédigez une règle générale avant de publier cette connaissance.');
+        if (providerRef?.name === 'groq' && !entry.extracted_rule) throw httpError(409, "Write a general rule before publishing this knowledge.");
         const now = new Date().toISOString();
         await store.updateLearnedKnowledge(id, { status: 'approved', reviewed_at: now, reviewed_by: reviewedBy || null });
         // Indexation vectorielle si le provider et le knowledgeStore sont disponibles
@@ -182,8 +182,8 @@ export function createSupportService({ store, provider, knowledgeStore, knowledg
 
     async documents() { return knowledgeStore ? knowledgeStore.documents() : []; },
     async publishDocument({title,content,source:existingSource}) {
-      if (!knowledgeStore) throw httpError(400,'La publication nécessite un stockage persistant.');
-      if(existingSource && !await knowledgeStore.getDocument(existingSource)) throw httpError(404,'Article introuvable.');
+      if (!knowledgeStore) throw httpError(400,"Publishing requires persistent storage.");
+      if(existingSource && !await knowledgeStore.getDocument(existingSource)) throw httpError(404,"Article not found.");
       const source=existingSource || `manual/${randomUUID()}.md`;
       const text=`# ${title}\n\n${content}`;
       const chunks=chunkText(text);
@@ -193,13 +193,13 @@ export function createSupportService({ store, provider, knowledgeStore, knowledg
       return {source,title,content};
     },
     async removeDocument(source) {
-      if(!knowledgeStore || !await knowledgeStore.deleteDocument(source)) throw httpError(404,'Article introuvable.');
+      if(!knowledgeStore || !await knowledgeStore.deleteDocument(source)) throw httpError(404,"Article not found.");
       return {removed:true};
     },
     async revokeKnowledge(id,{reviewedBy}={}) {
       return knowledgeAction(id,async()=>{
         const entry=await store.getLearnedKnowledge(id);
-        if(entry.status!=='active') throw httpError(409,'Seule une connaissance active peut être retirée.');
+        if(entry.status!=='active') throw httpError(409,"Only active knowledge can be withdrawn.");
         if(knowledgeStore) await knowledgeStore.deleteDocument(`learned/${id}.md`);
         await store.updateLearnedKnowledge(id,{status:'rejected',reviewed_at:new Date().toISOString(),reviewed_by:reviewedBy||null});
         return store.getLearnedKnowledge(id);
@@ -207,9 +207,9 @@ export function createSupportService({ store, provider, knowledgeStore, knowledg
     },
     async checkAI() {
       if(!provider?.check) return {provider:provider?'openai':'demo',connected:!!provider};
-      if(provider.configured===false) throw httpError(409,'Ajoutez votre clé Groq dans GROQ_API_KEY sur le serveur, puis redémarrez le backend.');
+      if(provider.configured===false) throw httpError(409,"Add your Groq key to GROQ_API_KEY on the server, then restart the backend.");
       try { return await provider.check(); }
-      catch { throw httpError(503,'Connexion IA indisponible. Vérifiez la clé, le modèle et les quotas du fournisseur.'); }
+      catch { throw httpError(503,"The AI connection is unavailable. Check the provider key, model and quotas."); }
     },
 
     async editKnowledge(id, { extracted_rule, human_answer }) {

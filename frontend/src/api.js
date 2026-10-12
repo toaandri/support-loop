@@ -8,17 +8,17 @@ export async function api(path, { method = 'GET', body, key = '', support = fals
     body: body === undefined ? undefined : JSON.stringify(body)
   }); } catch (error) {
     if (error.name === 'AbortError') throw error;
-    throw new Error('Connexion au serveur impossible. Vérifiez que le backend est démarré.');
+    throw new Error("Cannot connect to the server. Check that the backend is running.");
   }
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw Object.assign(new Error(response.status === 401 && data.error?.includes('access key required') ? 'Clé d’accès requise ou incorrecte.' :
-    response.status === 429 ? 'Trop de requêtes. Réessayez dans une minute.' : data.error || 'La requête a échoué.'), { status: response.status });
+  if (!response.ok) throw Object.assign(new Error(response.status === 401 && data.error?.includes('access key required') ? "An access key is required or incorrect." :
+    response.status === 429 ? "Too many requests. Try again in one minute." : data.error || "The request failed."), { status: response.status });
   return data;
 }
 
-export const statusLabels = { ai: 'Automatique', waiting: 'En attente', human: 'Conseiller', resolved: 'Résolue' };
-export const reasonLabels = { 'customer-request': 'Demande du client', 'sensitive-action': 'Action sensible',
-  'customer-distress': 'Client mecontent', 'low-confidence': 'Confiance insuffisante',
-  'missing-evidence': 'Information non verifiee', 'missing-knowledge': 'Connaissance absente',
-  'tool-or-provider-error': 'Erreur de service', 'ticket-created': 'Ticket ouvert', 'agent-request': 'Verification requise' };
-export const money = (cents) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(cents / 100);
+export const statusLabels = { ai: "Automatic", waiting: "Waiting", human: "Advisor", resolved: "Resolved" };
+export const reasonLabels = { 'customer-request': "Customer request", 'sensitive-action': "Sensitive action",
+  'customer-distress': "Customer distress", 'low-confidence': "Insufficient confidence",
+  'missing-evidence': "Unverified information", 'missing-knowledge': "Missing knowledge",
+  'tool-or-provider-error': "Service error", 'ticket-created': "Ticket opened", 'agent-request': "Verification required" };
+export const money = (cents) => new Intl.NumberFormat("en-GB", { style: 'currency', currency: 'EUR' }).format(cents / 100);

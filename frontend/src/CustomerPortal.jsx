@@ -16,10 +16,10 @@ import {
 import { api, money, statusLabels } from "./api.js";
 import MessageList from "./MessageList.jsx";
 const orderLabels = {
-  processing: "En préparation",
-  shipped: "Expédiée",
-  delivered: "Livrée",
-  cancelled: "Annulée",
+  processing: "Processing",
+  shipped: "Shipped",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
 };
 export default function CustomerPortal({
   health,
@@ -180,11 +180,11 @@ export default function CustomerPortal({
     body = (
       <>
         {heading(
-          "À VOTRE ÉCOUTE",
-          "Parlons de votre demande.",
+          "Here to help",
+          "Let’s talk about your request.",
           <button className="secondary" onClick={() => startConversation()}>
             <Plus size={16} />
-            Nouvelle demande
+            New request
           </button>,
         )}
         <div className="portal-support-grid">
@@ -194,8 +194,8 @@ export default function CustomerPortal({
                 <Headset size={21} />
               </span>
               <div>
-                <h2>L’équipe {health.brandName}</h2>
-                <small>Votre demande reste suivie jusqu’à sa résolution.</small>
+                <h2>The team {health.brandName}</h2>
+                <small>Your request stays with us until it is resolved.</small>
               </div>
               <span className={`badge ${status}`}>{statusLabels[status]}</span>
             </header>
@@ -203,13 +203,13 @@ export default function CustomerPortal({
               <div className="handoff-banner">
                 <Headset size={17} />
                 {status === "waiting"
-                  ? "Un conseiller va prendre le relais. Vous pouvez ajouter des précisions."
-                  : "Un conseiller suit votre demande."}
+                  ? "An advisor will take over. You can add more details."
+                  : "An advisor is handling your request."}
               </div>
             )}
             {status === "resolved" && (
               <div className="handoff-banner resolved">
-                Cette demande est résolue. Vous pouvez nous écrire à nouveau.
+                This request is resolved. You can write to us again.
               </div>
             )}
             <MessageList
@@ -220,9 +220,9 @@ export default function CustomerPortal({
             {!messages.length && (
               <div className="quick-prompts">
                 {[
-                  "Je souhaite suivre une commande",
-                  "J’ai une question sur un produit",
-                  "Je souhaite parler à un conseiller",
+                  "I would like to track an order",
+                  "I have a question about a product",
+                  "I would like to speak to a human advisor",
                 ].map((text) => (
                   <button
                     className="secondary"
@@ -237,14 +237,14 @@ export default function CustomerPortal({
             )}
             {sending && (
               <p className="status" role="status">
-                Votre demande est en cours…
+                Your request is being processed…
               </p>
             )}
             <form className="composer" onSubmit={send}>
               <textarea
-                aria-label="Message client"
+                aria-label="Customer message"
                 maxLength={4000}
-                placeholder="Décrivez votre demande…"
+                placeholder="Describe your request…"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 disabled={sending}
@@ -259,16 +259,16 @@ export default function CustomerPortal({
                   }
                 }}
               />
-              <button disabled={sending || !draft.trim()} aria-label="Envoyer">
+              <button disabled={sending || !draft.trim()} aria-label="Send">
                 <Send size={18} />
-                <span>Envoyer</span>
+                <span>Send</span>
               </button>
             </form>
           </section>
           <aside className="portal-history panel">
-            <h2>Vos échanges récents</h2>
+            <h2>Your recent conversations</h2>
             <p className="muted">
-              Reprenez une demande là où vous l’avez laissée.
+              Continue a request where you left it.
             </p>
             {conversations.length ? (
               conversations.slice(0, 8).map((row) => (
@@ -282,12 +282,12 @@ export default function CustomerPortal({
                     <span className={`badge ${row.status}`}>
                       {statusLabels[row.status]}
                     </span>
-                    {new Date(row.updatedAt).toLocaleDateString("fr-FR")}
+                    {new Date(row.updatedAt).toLocaleDateString("en-GB")}
                   </small>
                 </button>
               ))
             ) : (
-              <p className="muted">Votre premier échange apparaîtra ici.</p>
+              <p className="muted">Your first conversation will appear here.</p>
             )}
           </aside>
         </div>
@@ -297,11 +297,11 @@ export default function CustomerPortal({
     body = (
       <>
         {heading(
-          "VOTRE SUIVI",
-          "Mes demandes",
+          "Your progress",
+          "My requests",
           <button onClick={() => startConversation()}>
             <Plus size={16} />
-            Créer une demande
+            Create a request
           </button>,
         )}
         <div className="request-list">
@@ -318,8 +318,8 @@ export default function CustomerPortal({
                 <span>
                   <strong>{row.preview}</strong>
                   <small>
-                    Mis à jour le{" "}
-                    {new Date(row.updatedAt).toLocaleDateString("fr-FR")}
+                    Updated on{" "}
+                    {new Date(row.updatedAt).toLocaleDateString("en-GB")}
                   </small>
                 </span>
                 <span className={`badge ${row.status}`}>
@@ -331,9 +331,9 @@ export default function CustomerPortal({
           ) : (
             <Empty
               icon={MessagesSquare}
-              title="Tout commence par une question."
-              text="Créez votre première demande. Notre équipe vous accompagnera."
-              action="Créer une demande"
+              title="It starts with a question."
+              text="Create your first request. Our team will help you through it."
+              action="Create a request"
               onClick={() => startConversation()}
             />
           )}
@@ -344,10 +344,10 @@ export default function CustomerPortal({
     body = (
       <>
         {heading(
-          "VOTRE ESPACE",
-          "Mes commandes",
+          "Your workspace",
+          "My orders",
           <button className="secondary" onClick={() => navigate("requests")}>
-            Mes demandes <ArrowRight size={15} />
+            My requests <ArrowRight size={15} />
           </button>,
         )}
         <div className="portal-order-grid">
@@ -362,26 +362,26 @@ export default function CustomerPortal({
                   {orderLabels[order.status]}
                 </span>
                 {order.tracking_number && (
-                  <p className="muted">Suivi : {order.tracking_number}</p>
+                  <p className="muted">Tracking: {order.tracking_number}</p>
                 )}
                 <button
                   className="secondary"
                   onClick={() =>
                     startConversation(
-                      `Je souhaite des informations sur la commande ${order.id}`,
+                      `I would like information about order ${order.id}`,
                     )
                   }
                 >
-                  Contacter le support <ArrowUpRight size={15} />
+                  Contact support <ArrowUpRight size={15} />
                 </button>
               </article>
             ))
           ) : (
             <Empty
               icon={Package}
-              title="Aucune commande pour le moment."
-              text="Les commandes associées à votre compte seront affichées ici."
-              action="Contacter le support"
+              title="No orders yet."
+              text="Orders associated with your account will appear here."
+              action="Contact support"
               onClick={() => startConversation()}
             />
           )}
@@ -392,9 +392,9 @@ export default function CustomerPortal({
     body = (
       <>
         {heading(
-          "INFORMATIONS & DISPONIBILITÉ",
-          "Le catalogue",
-          search("Rechercher un produit", "Rechercher…"),
+          "Information & availability",
+          "The catalogue",
+          search("Search products", "Rechercher…"),
         )}
         <div className="product-grid">
           {products
@@ -414,7 +414,7 @@ export default function CustomerPortal({
                   <span
                     className={`badge ${product.stock > 0 ? "resolved" : "waiting"}`}
                   >
-                    {product.stock > 0 ? "Disponible" : "Indisponible"}
+                    {product.stock > 0 ? "Available" : "Unavailable"}
                   </span>
                 </div>
                 <div className="product-info">
@@ -428,11 +428,11 @@ export default function CustomerPortal({
                     className="secondary"
                     onClick={() =>
                       startConversation(
-                        `J’ai une question sur le produit ${product.id} : ${product.name}`,
+                        `I have a question about product ${product.id} : ${product.name}`,
                       )
                     }
                   >
-                    Poser une question <ArrowUpRight size={16} />
+                    Ask a question <ArrowUpRight size={16} />
                   </button>
                 </div>
               </article>
@@ -441,9 +441,9 @@ export default function CustomerPortal({
         {!products.length && (
           <Empty
             icon={Package}
-            title="Le catalogue sera disponible prochainement."
-            text="Notre équipe peut déjà répondre à vos questions."
-            action="Contacter le support"
+            title="The catalogue will be available soon."
+            text="Our team can already answer your questions."
+            action="Contact support"
             onClick={() => startConversation()}
           />
         )}{" "}
@@ -452,16 +452,16 @@ export default function CustomerPortal({
             `${p.name} ${p.description} ${p.id}`
               .toLowerCase()
               .includes(query.toLowerCase()),
-          ) && <p className="muted">Aucun résultat pour cette recherche.</p>}
+          ) && <p className="muted">No results for this search.</p>}
       </>
     );
   else if (view === "help")
     body = (
       <>
         {heading(
-          "LES RÉPONSES À PORTÉE DE MAIN",
-          "Centre d’aide",
-          search("Rechercher un article", "Rechercher une réponse…"),
+          "Answers within reach",
+          "Help centre",
+          search("Search articles", "Search for an answer…"),
         )}
         <div className="help-articles">
           {articles
@@ -484,19 +484,19 @@ export default function CustomerPortal({
         {!articles.length && (
           <Empty
             icon={BookOpen}
-            title="Besoin d’une réponse personnalisée ?"
-            text="L’équipe est disponible pour vous accompagner."
-            action="Poser ma question"
+            title="Need a personal answer?"
+            text="The team is here to help."
+            action="Ask my question"
             onClick={() => startConversation()}
           />
         )}
         <div className="contact-strip">
           <div>
-            <h2>Votre question mérite une réponse.</h2>
-            <p>Décrivez votre situation, nous nous occupons de la suite.</p>
+            <h2>Your question deserves an answer.</h2>
+            <p>Describe your situation. We will take it from there.</p>
           </div>
           <button onClick={() => startConversation()}>
-            Contacter le support <ArrowRight size={17} />
+            Contact support <ArrowRight size={17} />
           </button>
         </div>
       </>
@@ -508,29 +508,28 @@ export default function CustomerPortal({
           <div>
             <span className="eyebrow">
               {user?.role === "customer"
-                ? `BIENVENUE, ${user.name.split(" ")[0].toUpperCase()}`
-                : "VOTRE ESPACE DE SUPPORT"}
+                ? `Welcome, ${user.name.split(" ")[0].toUpperCase()}`
+                : "Your support workspace"}
             </span>
             <h1>
-              Des réponses claires.
+              Clear answers.
               <br />
-              <span>Un suivi qui continue.</span>
+              <span>Support that stays with you.</span>
             </h1>
             <p>
-              Une question, une commande à suivre, un problème à résoudre.
-              Retrouvez notre équipe et vos échanges au même endroit.
+              A question, an order to track, a problem to solve. Find our team and your conversations in one place.
             </p>
             <div className="hero-actions">
               <button onClick={() => startConversation()}>
-                Nous écrire <ArrowUpRight size={18} />
+                Write to us <ArrowUpRight size={18} />
               </button>
               <button className="secondary" onClick={() => navigate("help")}>
-                Explorer le centre d’aide <ArrowRight size={17} />
+                Explore the help centre <ArrowRight size={17} />
               </button>
             </div>
             <span className="hero-note">
               <MessageCircle size={14} />
-              Votre historique vous suit, à chaque échange.
+              Your history stays with you, across every conversation.
             </span>
           </div>
           <div className="hero-visual">
@@ -542,33 +541,33 @@ export default function CustomerPortal({
                 <Headset size={30} />
               </span>
               <span className="eyebrow">
-                L’ÉQUIPE {health.brandName.toUpperCase()}
+                The team {health.brandName.toUpperCase()}
               </span>
-              <h2>On garde le fil.</h2>
+              <h2>We keep the thread.</h2>
               <p>
-                De votre première question
-                <br />à sa résolution.
+                From your first question
+                <br />to its resolution.
               </p>
               <div className="hero-service-stages">
                 <span>
                   <Check size={15} />
-                  Demande reçue
+                  Request received
                 </span>
                 <span>
                   <MessagesSquare size={15} />
-                  Échange en cours
+                  Conversation in progress
                 </span>
                 <span>
                   <ShieldCheck size={15} />
-                  Suivi conservé
+                  History preserved
                 </span>
               </div>
             </div>
             <div className="hero-small-card">
               <BookOpen size={19} />
               <div>
-                <strong>La bonne information</strong>
-                <small>Nos réponses, à votre rythme.</small>
+                <strong>The right information</strong>
+                <small>Answers at your own pace.</small>
               </div>
             </div>
           </div>
@@ -577,17 +576,17 @@ export default function CustomerPortal({
           {[
             [
               MessageCircle,
-              "Une question ?",
-              "Échangez avec notre équipe.",
+              "Have a question?",
+              "Talk to our team.",
               "support",
             ],
             [
               MessagesSquare,
-              "Vos demandes",
-              "Retrouvez chaque conversation.",
+              "Your requests",
+              "Find every conversation.",
               "requests",
             ],
-            [Package, "Vos commandes", "Consultez votre suivi.", "orders"],
+            [Package, "Your orders", "Check your progress.", "orders"],
           ].map(([Icon, title, text, target]) => (
             <button
               className="shortcut-card"
@@ -607,11 +606,11 @@ export default function CustomerPortal({
         </section>
         <div className="portal-section-heading">
           <div>
-            <span className="eyebrow">VOTRE PROCHAIN ÉCHANGE</span>
-            <h2>Comment pouvons-nous vous aider ?</h2>
+            <span className="eyebrow">Your next conversation</span>
+            <h2>How can we help?</h2>
           </div>
           <button className="text-button" onClick={() => navigate("help")}>
-            Toutes les informations <ArrowRight size={15} />
+            All information <ArrowRight size={15} />
           </button>
         </div>
         <div className="home-help-grid">
@@ -632,14 +631,13 @@ export default function CustomerPortal({
             <div className="home-support-card panel">
               <Headset size={24} />
               <div>
-                <h2>Une réponse adaptée à votre situation.</h2>
+                <h2>An answer that fits your situation.</h2>
                 <p>
-                  Décrivez votre besoin. L’équipe retrouvera le contexte et vous
-                  répondra dans votre espace.
+                  Describe what you need. The team will find the context and respond in your workspace.
                 </p>
               </div>
               <button onClick={() => startConversation()}>
-                Ouvrir une demande <ArrowRight size={16} />
+                Open a request <ArrowRight size={16} />
               </button>
             </div>
           )}
