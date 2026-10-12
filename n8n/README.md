@@ -3,6 +3,16 @@
 n8n complète le backend avec des webhooks et des schedules. Le chat web et la
 boucle d’apprentissage fonctionnent aussi sans n8n.
 
+## Compatibilité avec le portail
+
+Le site utilise des sessions par utilisateur. Ces workflows serveur utilisent
+des clés de service facultatives : configurer CUSTOMER_API_KEY et SUPPORT_ADMIN_KEY
+avec deux valeurs privées distinctes. Définir SUPPORT_CUSTOMER_ID sur un client
+existant pour les workflows entrants. Sans cette configuration, leurs appels sont
+refusés. Ils représentent une identité fixe ; un canal multi-client nécessite
+un adaptateur qui vérifie son identité avant de choisir son client. Les appels
+n8n ne remplacent pas les sessions du navigateur.
+
 ## Démarrer
 
 ```bash
@@ -52,7 +62,7 @@ cookies sécurisés si l’instance est exposée en HTTPS.
 | `human-escalation.json` | POST `support-loop/escalation` | `{ conversationId }` → contexte de transfert à intégrer à une notification |
 | `human-learning.json` | POST `support-loop/human-learning` | `{ action: "resolve" }` → liste des connaissances récentes ; pas de résolution automatique |
 | `knowledge-review-reminder.json` | Schedule quotidien | Résumé des nouvelles propositions à relier à votre canal |
-| `knowledge-ingestion.json` | POST `support-loop/ingest` | `/api/support/ingest` avec clé admin ; exige le mode RAG |
+| `knowledge-ingestion.json` | POST `support-loop/ingest` | `/api/support/ingest` avec clé admin ; exige Groq ou RAG |
 | `notifications.json` | POST `support-loop/notify` | Prépare les événements, adaptateurs sortants à configurer |
 | `analytics.json` | Schedule quotidien | Snapshot de statistiques à stocker/envoyer selon vos besoins |
 | `error-handling.json` | Error Trigger | Contexte d’erreur à relier au canal de supervision |

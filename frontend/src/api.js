@@ -3,7 +3,7 @@ export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$
 export async function api(path, { method = 'GET', body, key = '', support = false, signal } = {}) {
   let response;
   try { response = await fetch(`${apiBaseUrl}/api${path}`, {
-    method, signal,
+    method, signal, credentials:'same-origin',
     headers: { 'Content-Type': 'application/json', [support ? 'x-support-key' : 'x-customer-key']: key },
     body: body === undefined ? undefined : JSON.stringify(body)
   }); } catch (error) {
@@ -11,7 +11,7 @@ export async function api(path, { method = 'GET', body, key = '', support = fals
     throw new Error('Connexion au serveur impossible. Vérifiez que le backend est démarré.');
   }
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw Object.assign(new Error(response.status === 401 ? 'Clé d’accès requise ou incorrecte.' :
+  if (!response.ok) throw Object.assign(new Error(response.status === 401 && data.error?.includes('access key required') ? 'Clé d’accès requise ou incorrecte.' :
     response.status === 429 ? 'Trop de requêtes. Réessayez dans une minute.' : data.error || 'La requête a échoué.'), { status: response.status });
   return data;
 }

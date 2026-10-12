@@ -6,229 +6,198 @@
 
 **Le support, en continu.**
 
-Un agent répond avec des sources. Un humain prend le relais.
-Les réponses validées enrichissent les prochaines conversations.
+Un portail client. Un espace équipe. Une IA qui s’appuie sur vos données
+et progresse grâce aux réponses validées par votre équipe.
 
 [![CI](https://github.com/toaandri/support-loop/actions/workflows/ci.yml/badge.svg)](https://github.com/toaandri/support-loop/actions/workflows/ci.yml)
-![React](https://img.shields.io/badge/React-18-28372f?style=flat-square&logo=react&logoColor=white)
-![Node.js](https://img.shields.io/badge/Node.js-22%2B-3b8068?style=flat-square&logo=nodedotjs&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-657b96?style=flat-square&logo=postgresql&logoColor=white)
-![n8n](https://img.shields.io/badge/n8n-orchestration-b07c5d?style=flat-square&logo=n8n&logoColor=white)
+![React](https://img.shields.io/badge/React-18-28372f?logo=react&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-22%2B-3b8068?logo=nodedotjs&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-657b96?logo=postgresql&logoColor=white)
+![Groq](https://img.shields.io/badge/IA-Groq-b07c5d)
 
-[Démarrer](#démarrer-en-deux-commandes) · [La boucle](#la-boucle-dapprentissage-en-action) · [Architecture](#architecture) · [Documentation](#documentation)
+[Démarrer](#démarrer) · [Fonctionnalités](#deux-espaces-un-même-suivi) · [Apprentissage](#comment-lia-apprend) · [Documentation](#documentation)
 
-![Vue d’ensemble SupportLoop](docs/media/dashboard.png)
+![Portail client SupportLoop](docs/media/portal-home.png)
 
 </div>
 
-SupportLoop est un projet complet de support client pour une boutique fictive :
-chat, données métier, recherche documentaire, outils contrôlés, transfert humain
-et apprentissage par connaissances validées. Le mode démo fonctionne **sans clé
-API et sans Docker**. Le mode RAG ajoute OpenAI et PostgreSQL/pgvector.
+SupportLoop est une application de support adaptable à votre activité : les articles,
+produits et services se configurent dans l’administration. Les clients créent leur
+compte et retrouvent leurs propres demandes. PostgreSQL conserve les comptes,
+sessions, conversations, tickets et connaissances après un redémarrage.
 
-## Démarrer en deux commandes
+L’IA utilise **Groq**, avec `openai/gpt-oss-20b`, et des données récupérées par le
+serveur. Une clé personnelle est nécessaire ; l’offre gratuite dépend des quotas
+[Groq](https://console.groq.com/docs/rate-limits). Sans clé ou en cas d’indisponibilité,
+les demandes passent à un conseiller. Aucune réponse générée n’est simulée en mode Groq.
 
-Prérequis : **Node.js 22.16+** et npm. Depuis la racine du dépôt :
+## Démarrer
+
+Prérequis : **Node.js 22.16+**, npm et **Docker** pour PostgreSQL.
+
+1. Copier `.env.example` vers `.env`.
+2. Définir `ADMIN_EMAIL` et un `ADMIN_PASSWORD` unique de **12 à 128 caractères**.
+3. Ajouter `GROQ_API_KEY` depuis [la console Groq](https://console.groq.com/keys).
+   Vous pouvez l’ajouter plus tard : les comptes, articles et échanges humains fonctionnent déjà.
+4. Depuis la racine :
 
 ```bash
 npm run setup
+docker compose up -d postgres
 npm run dev
 ```
 
-Ouvrir **[localhost:5173](http://localhost:5173)**. Le backend écoute sur
-[localhost:3000/api/health](http://localhost:3000/api/health).
-
-Si le port frontend est déjà utilisé, copier `.env.example` vers `.env` et définir
-`FRONTEND_PORT=5174`. Le lanceur affiche l’adresse à ouvrir.
-
-Pour peupler le tableau de bord avec huit scénarios fictifs, dans un autre terminal :
-
-```bash
-npm run demo:seed
-```
-
-Les scénarios passent par les vraies routes de l’application. Aucun chiffre de
-dashboard n’est fabriqué. En mémoire, les données disparaissent au redémarrage ;
-la version Docker les conserve dans PostgreSQL.
-
-## Ce que vous pouvez faire
-
-| Espace | Fonctionnalités |
+| Adresse | Espace |
 |---|---|
-| **Vue d’ensemble** | Activité sur sept jours UTC, statuts, transferts historiques, délai de réponse et connaissances |
-| **Conversations** | Recherche, file filtrée, contexte client, commandes, traces d’outils, prise en charge et réponse humaine |
-| **Connaissances** | Question, réponse initiale, correction humaine, règle JSON, révision, édition, approbation et rejet |
-| **Conversation client** | Suivi de commande, stock, politiques citées, relais humain et mise à jour des réponses |
-| **Catalogue** | Recherche de produits, disponibilité et accès au support |
+| [localhost:5173](http://localhost:5173) | Portail client : accueil, centre d’aide, catalogue, demandes et commandes |
+| [localhost:5173/admin](http://localhost:5173/admin) | Administration : connexion avec les identifiants de `.env` |
+| [localhost:3000/api/health](http://localhost:3000/api/health) | État du backend |
 
-![Visite des espaces SupportLoop](docs/media/workspace-tour.gif)
+Si 5173 est occupé, définir `FRONTEND_PORT=5174`. Le lanceur affiche le port utilisé.
+Les schémas sont appliqués au démarrage. **Aucune boutique ou commande fictive n’est
+créée dans une base neuve.** Le premier administrateur est créé au démarrage ; son
+mot de passe n’est pas écrasé lors des suivants.
 
-L’interface s’adapte au mobile et à la tablette. Elle propose une navigation
-clavier, des états vides, des retours d’erreur et un guide intégré. Les illustrations
-du catalogue sont locales : aucune image externe n’est nécessaire à la démo.
+Commencer dans `/admin` par publier les informations utiles dans **Centre d’aide**,
+puis ajouter vos produits ou services dans **Catalogue**. Un nouveau compte client
+se crée depuis **Mon espace → Créer un compte**. Dans **Réglages**, tester la connexion Groq.
 
-## La boucle d’apprentissage en action
-
-**Question inconnue → conseiller → résolution → révision → validation → réponse sourcée.**
-
-![Parcours réel de la boucle d’apprentissage](docs/media/learning-loop.gif)
-
-Pour reproduire ce parcours :
-
-1. Ouvrir **Conversation client** et demander : `Comment fonctionne la garantie atelier ?`
-2. L’agent transfère la question. Dans **Conversations**, sélectionner le dossier et **Prendre en charge**.
-3. Répondre : `La garantie atelier dure deux ans, avec un justificatif d’achat.`
-4. Cliquer sur **Résoudre**, puis ouvrir **Connaissances**.
-5. **Réviser**, éventuellement **Éditer**, puis **Approuver** la proposition.
-6. Dans une **nouvelle conversation**, poser la même question : la réponse validée est maintenant citée.
-
-En démo, la réutilisation repose sur une correspondance lexicale prudente ; en
-RAG, sur une recherche vectorielle. Les actions sensibles restent transférées à
-un humain. Le modèle **n’est pas réentraîné** : c’est la base de connaissances
-qui progresse, sous contrôle humain.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    C[Client React] --> API[API Express]
-    N[n8n · webhooks et schedules] --> API
-    API --> A[Agent et outils contrôlés]
-    A --> K[Documents et connaissances validées]
-    A --> D[Clients, commandes et stock]
-    A -->|Informations suffisantes| R[Réponse sourcée]
-    A -->|Doute ou action sensible| H[Conseiller humain]
-    H --> P[Proposition de connaissance]
-    P --> V[Révision et validation]
-    V --> K
-    K --- PG[(PostgreSQL + pgvector)]
-    D --- PG
-```
-
-**React + Vite** pour les espaces client et conseiller ; **Node.js + Express**
-pour la logique métier ; **OpenAI Responses** pour le modèle et les outils ;
-**PostgreSQL + pgvector** pour la persistance et le RAG ; **n8n** pour les
-adaptateurs d’orchestration. Le frontend et n8n ne contournent pas les règles du backend.
-
-```text
-support-loop/
-├── backend/          API, agent, outils, stores et tests
-├── frontend/         Interface React et assets locaux
-├── database/         Schémas idempotents et données fictives
-├── knowledge/demo/   Politiques Markdown de démonstration
-├── n8n/workflows/    Douze workflows importables
-├── scripts/          Démarrage, scénarios, tests UI, GIFs, backup
-├── docs/             Guides techniques et démonstrations
-└── .github/          CI : tests, PostgreSQL, build et navigateur
-```
-
-## PostgreSQL, Docker et RAG
-
-La stack persistante démarre avec :
+Pour exécuter toute la stack compilée avec Nginx :
 
 ```bash
 docker compose up -d --build
 ```
 
-Frontend : 5173 ; API : 3000 ; PostgreSQL : 55432. Nginx sert le build React et
-relaie `/api`. Les ports restent sur localhost et les données sont dans un volume.
-Pour ajouter n8n :
+Les ports restent liés à localhost. Les volumes PostgreSQL conservent les données.
+Le `.env` est privé et exclu de Git. La clé Groq reste exclusivement sur le serveur.
 
-```bash
-docker compose --profile automation up -d
+## Deux espaces, un même suivi
+
+| Portail client | Administration |
+|---|---|
+| Inscription, connexion et déconnexion | Authentification et rôle administrateur |
+| Centre d’aide public et recherche | Publication, édition et retrait des articles |
+| Catalogue, prix et disponibilité | Création et modification des produits ou services |
+| Demandes privées, historique et statuts | File, recherche, contexte, prise en charge et réponse |
+| Commandes associées au compte | Clients, commandes du dossier et traces des outils |
+| Réponses du conseiller actualisées automatiquement | Révision, édition, validation et retrait des connaissances |
+| Interface adaptée au mobile | Statistiques calculées sur les événements et seuil de transfert |
+
+![Visite du portail et de l’administration](docs/media/portal-tour.gif)
+
+Les sessions utilisent des cookies `HttpOnly`, `SameSite=Strict`, avec une durée de
+sept jours. Les mots de passe sont hachés avec scrypt. L’identité client vient de
+la session : envoyer un autre `customerId` dans une requête ne donne aucun accès à
+ses conversations ou commandes. Les actions du conseiller vérifient également son identité.
+
+## Comment l’IA apprend
+
+**Question → sources vérifiées → réponse ou relais humain → résolution → règle proposée → validation → réutilisation.**
+
+![Demande, réponse du conseiller et publication de la règle](docs/media/portal-workflow.gif)
+
+Ce GIF est enregistré dans le vrai portail, sur une base de test isolée, sans clé
+Groq. Il montre le relais humain et la rédaction manuelle d’une règle. Avec une
+clé, Groq propose automatiquement cette règle à la résolution ; sa validation
+reste une décision de l’équipe.
+
+1. Le backend cherche dans les articles et connaissances validées, puis récupère
+   les données métier nécessaires dans le contexte du client connecté.
+2. Groq formule une réponse à partir de ces faits et cite les extraits documentaires.
+3. Une action sensible, une demande de conseiller, un manque de preuve, une confiance
+   insuffisante ou une panne déclenchent un transfert avec ticket et historique.
+4. À la résolution, une proposition conserve la correction et sa provenance pour révision.
+5. L’équipe vérifie le sujet, la condition et la réponse générale. En mode Groq,
+   **seule cette règle générale** rejoint l’index, sans recopier la correction privée.
+6. La règle validée devient disponible aux prochaines recherches. Elle peut être retirée.
+
+L’apprentissage enrichit une **base de connaissances** ; il ne modifie pas les poids
+du modèle. La recherche Groq utilise le plein texte PostgreSQL, principalement en
+français, sans API d’embeddings payante. Le score de confiance est une estimation.
+Le JSON strict est compatible avec le [modèle choisi](https://console.groq.com/docs/structured-outputs).
+
+![Espace équipe et gestion des conversations](docs/media/portal-admin-conversations.png)
+
+## Architecture
+
+```mermaid
+flowchart LR
+    C[Portail client] --> API[Express · sessions et rôles]
+    H[Administration] --> API
+    API --> PG[(PostgreSQL · comptes et données)]
+    API --> K[Recherche dans les articles et règles validées]
+    K --> G[Groq · génération structurée]
+    G --> R{Preuves et confiance suffisantes ?}
+    R -->|Oui| A[Réponse sourcée]
+    R -->|Non| T[Ticket et relais humain]
+    T --> V[Résolution et révision]
+    V -->|Validation| K
 ```
 
-n8n est accessible sur 5678. Les webhooks demandent un credential **Header Auth**
-à configurer après import ; voir [le guide n8n](n8n/README.md).
-
-Pour utiliser le vrai agent RAG, copier `.env.example` vers `.env` et configurer :
-
-```dotenv
-AGENT_MODE=rag
-STORAGE_MODE=postgres
-OPENAI_API_KEY=your-key
-DATABASE_URL=postgresql://supportloop:supportloop@localhost:55432/supportloop
+```text
+backend/          API, authentification, fournisseurs IA, règles métier, tests
+frontend/         Portail public et client, administration, assets locaux
+database/         Schémas idempotents et fixtures séparées
+knowledge/        Documents à ingérer ; exemples isolés dans demo/
+scripts/          Démarrage, tests navigateur, GIFs, sauvegarde
+docs/             Guides d’utilisation, API, sécurité et exploitation
+n8n/workflows/    Adaptateurs facultatifs, credentials à configurer
 ```
 
-Puis, en lancement Node local :
+## Vérifications
 
 ```bash
-docker compose up -d postgres
-npm run db:init --prefix backend
-npm run knowledge:ingest --prefix backend
-npm run dev
+npm run check       # Tests backend + build React
+npm run evaluate    # 15 cas déterministes du moteur hors ligne + avant/après
 ```
 
-En Docker complet, indexer avec
-`docker compose exec backend node scripts/ingestKnowledge.js /knowledge/demo`.
-L’ingestion accepte `.md` et `.txt` UTF-8, évite les fichiers inchangés et remplace
-les chunks modifiés dans une transaction. Les vecteurs ont 1536 dimensions.
-Les appels OpenAI sont payants ; la clé reste exclusivement dans le backend.
+Pour inclure les intégrations, créer une base dédiée `supportloop_test`, puis définir
+`TEST_DATABASE_URL`. Sous PowerShell :
 
-## Contrôle humain et robustesse
-
-- Six outils autorisés : commandes, produit, stock, ticket et recherche documentaire.
-- Huit appels d’outils et cinq tours de modèle maximum **par message**.
-- Commandes accessibles uniquement au client configuré côté serveur.
-- Transfert des remboursements, annulations, demandes juridiques, demandes explicites d’humain et erreurs d’outil.
-- Connaissances validées immuables ; indexation en échec relançable sans activation partielle.
-- Clés client/conseiller distinctes, limites de débit, logs JSON et arrêt contrôlé.
-
-Pour protéger l’accès, définir `DEMO_MODE=false`, `CUSTOMER_API_KEY` et
-`SUPPORT_ADMIN_KEY`. La version fournie représente un client et un conseiller
-configurés, avec une seule instance backend. Elle reste un projet d’étude ; les
-identités multi-utilisateurs, l’email/WhatsApp réel et la supervision externe
-nécessitent leur configuration ou extension. [État détaillé et limites](docs/status.md).
-
-## Vérification et démonstrations reproductibles
-
-```bash
-npm run check       # Tests backend et build frontend
-npm run evaluate    # 15 cas de régression + parcours avant/après
-```
-
-Les tests couvrent les contrôles d’accès, les outils, les transitions humaines,
-le learning loop, les erreurs et la persistance. Les tests PostgreSQL s’activent
-avec `TEST_DATABASE_URL` sur une base de test dédiée. Les appels OpenAI sont simulés.
-
-Pour le parcours navigateur et la régénération des GIFs :
-
-```bash
+```powershell
+$env:TEST_DATABASE_URL='postgresql://supportloop:supportloop@localhost:55432/supportloop_test'
+npm run check
 python -m pip install -r scripts/media-requirements.txt
 python -m playwright install chromium
+npm run test:portal
 npm run test:e2e
 npm run docs:media
 ```
 
-Le script lance des serveurs isolés et vérifie les layouts à 390, 768 et 1440 px.
-Il produit les captures et GIFs à partir du fonctionnement réel de la démo.
-[Instructions de vérification](docs/operations.md).
+Le test du portail utilise une base **jetable** `supportloop_portal_test`, des ports
+3102/5181 et des identités fictives. Il vérifie les vrais comptes, permissions,
+articles, catalogue, commandes, échanges humains, connaissances et affichages mobiles.
+Les tests Groq interceptent uniquement l’inférence externe : la récupération et
+l’activation sont vérifiées dans PostgreSQL. Un test avec une vraie clé doit encore
+être effectué après sa configuration. La CI exécute les tests sous Node 22/24 et les
+parcours Chromium sans clé externe.
 
-<details>
-<summary>Aperçus mobile et espaces détaillés</summary>
+## Modes et extensions
 
-| Conversation | Connaissances |
-|---|---|
-| ![Chat](docs/media/client.png) | ![Révision](docs/media/knowledge.png) |
+Le portail utilise `AUTH_MODE=session`, `AGENT_MODE=groq`, `STORAGE_MODE=postgres` et
+`DEMO_MODE=false`. Un mode historique en mémoire reste disponible pour les fixtures :
+`AUTH_MODE=keys`, `AGENT_MODE=demo`, `STORAGE_MODE=memory`, `DEMO_MODE=true`.
+Les anciens médias de la démo documentent ce moteur déterministe.
 
-<img src="docs/media/dashboard-mobile.png" width="270" alt="Tableau de bord mobile" />
-<img src="docs/media/chat-mobile.png" width="270" alt="Conversation mobile" />
+`AGENT_MODE=rag` active l’intégration OpenAI et pgvector, avec une clé et des appels
+payants ; voir [le guide IA et recherche](docs/rag.md). n8n reste facultatif ; les
+clés de service doivent être configurées explicitement, ainsi que les credentials
+et destinations des canaux. [Guide n8n](n8n/README.md).
 
-</details>
+Les commandes se lisent depuis PostgreSQL et sont rattachées à un client. La connexion
+à un ERP ou à une plateforme de vente se fait au niveau des repositories ; aucun
+paiement, remboursement automatique ou canal email/WhatsApp n’est présenté comme connecté.
+Cette version fournit un serveur de support unique ; voir les limites et l’exploitation.
 
 ## Documentation
 
 | Guide | Contenu |
 |---|---|
-| [État du projet](docs/status.md) | Périmètre terminé, extensions et limites |
-| [Architecture](docs/architecture.md) | Composants, données et parcours |
-| [API](docs/api.md) | Routes, corps, statuts et indicateurs |
-| [RAG](docs/rag.md) | Ingestion, embeddings, recherche et sources |
-| [Learning loop](docs/learning-loop.md) | Révision, activation, échecs et reprise |
-| [Exploitation](docs/operations.md) | Installation, Docker, tests, backups et diagnostic |
-| [Sécurité](docs/security.md) | Identité, permissions, secrets et garde-fous |
-| [n8n](n8n/README.md) | Import, authentification et connexion des workflows |
-| [Contribuer](CONTRIBUTING.md) | Développement et validation des modifications |
-
-Les exemples de politiques, commandes et garanties sont fictifs et servent
-uniquement à montrer le fonctionnement de SupportLoop.
+| [État du projet](docs/status.md) | Fonctions livrées, validations et limites |
+| [Architecture](docs/architecture.md) | Composants, stockage et flux |
+| [API](docs/api.md) | Comptes, routes, corps, rôles et erreurs |
+| [IA et recherche](docs/rag.md) | Groq, plein texte, ingestion et OpenAI facultatif |
+| [Apprentissage](docs/learning-loop.md) | Proposition, revue, activation, retrait et confidentialité |
+| [Exploitation](docs/operations.md) | Local, Docker, accès admin, tests, sauvegarde et diagnostic |
+| [Sécurité](docs/security.md) | Sessions, identités, outils et données envoyées au fournisseur |
+| [n8n](n8n/README.md) | Workflows, accès de service et configuration des canaux |

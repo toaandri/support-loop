@@ -43,9 +43,9 @@ export async function ingestKnowledge(directory, { knowledgeStore, provider }) {
       if (!chunks.length) throw new Error(`Empty document: ${source}`);
       const embeddings = [];
       for (let offset = 0; offset < chunks.length; offset += 32) {
-        embeddings.push(...await provider.embed(chunks.slice(offset, offset + 32)));
+        embeddings.push(...(provider.embed ? await provider.embed(chunks.slice(offset, offset + 32)) : chunks.slice(offset, offset + 32).map(()=>null)));
       }
-      await knowledgeStore.replaceDocument({ source, hash, model: provider.embeddingModel, chunks, embeddings });
+      await knowledgeStore.replaceDocument({ source, hash, model: provider.embeddingModel, content:text, chunks, embeddings });
       results.push({ source, status: 'indexed', chunks: chunks.length });
     }
   }

@@ -7,7 +7,7 @@ function tool(name, description, properties = {}) {
 export const supportToolDefinitions = [
   tool('get_customer_orders', 'Get orders for the authenticated customer. No customer argument.'),
   tool('get_order', 'Get one order owned by the authenticated customer.', { orderId: { type: 'string' } }),
-  tool('search_product', 'Find catalog products by name or ID.', { query: { type: 'string' } }),
+  tool('search_product', 'Find catalog products by name or ID. Use * to browse the catalog.', { query: { type: 'string' } }),
   tool('check_stock', 'Get current stock of a catalog product.', { productId: { type: 'string' } }),
   tool('create_ticket', 'Create a support ticket only when the customer asks for a ticket or reports an incident.'),
   tool('search_knowledge_base', 'Search approved support documentation.', { query: { type: 'string' } })
@@ -44,7 +44,7 @@ export function createToolExecutor({ state, repo, store, provider, knowledgeStor
             result = await repo.order(args.orderId, state.customerId);
             if (!result) throw new Error('Order not found for this customer.');
             break;
-          case 'search_product': result = await repo.products(args.query); break;
+          case 'search_product': result = await repo.products(args.query === '*' ? '' : args.query); break;
           case 'check_stock':
             result = await repo.product(args.productId);
             if (!result) throw new Error('Product not found.');
@@ -59,6 +59,9 @@ export function createToolExecutor({ state, repo, store, provider, knowledgeStor
             break;
           }
           case 'search_knowledge_base':
+            if (provider && knowledgeStore && !provider.embed) {
+              result = await knowledgeStore.searchText(args.query); break;
+            }
             if (!provider || !knowledgeStore) {
               // The demo uses the same excerpts as knowledge/demo; no semantic-search claim.
               const query = normalize(args.query);
@@ -84,7 +87,7 @@ export function createToolExecutor({ state, repo, store, provider, knowledgeStor
             });
             break;
         }
-        if (name === 'search_knowledge_base') result = result.map((row) => ({ ...row, citation: nextCitation++ }));
+            if (name === 'search_knowledge_base') result = result.map((row) => ({ ...row, citation: nextCitation++ }));
         trace.status = 'success'; trace.result = result;
         return result;
       } catch (error) {

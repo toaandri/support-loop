@@ -5,6 +5,7 @@ import { createConversationStore } from './services/conversationStore.js';
 import { createSupportRouter } from './routes/supportRoutes.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { requestLogger } from './middleware/logger.js';
+import { createAuthRouter } from './routes/authRoutes.js';
 
 export function createApp(options = {}) {
   const app = express();
@@ -19,6 +20,7 @@ export function createApp(options = {}) {
   });
   app.use(express.json());
   app.use(requestLogger);
+  if (options.authService) app.use('/api', createAuthRouter(options.authService, {secure:options.secureCookies}));
   app.use('/api/chat', rateLimit({ windowMs: 60_000, max: 30 }));
   app.use('/api/support/knowledge', rateLimit({ windowMs: 60_000, max: 60 }));
   app.use('/api/support/ingest', rateLimit({ windowMs: 60_000, max: 2 }));
@@ -31,7 +33,7 @@ export function createApp(options = {}) {
       return next(err);
     }
 
-    const status = [400, 401, 403, 404, 409, 413].includes(err.status) ? err.status : 500;
+    const status = [400, 401, 403, 404, 409, 413, 503].includes(err.status) ? err.status : 500;
     return res.status(status).json({ error: status === 500 ? 'Unexpected backend error.' :
       err.type === 'entity.parse.failed' ? 'Invalid request body.' : err.message });
   });

@@ -89,6 +89,7 @@ export function createMemorySupportStore() {
       return structuredClone(state);
     },
     async listConversations() { return structuredClone([...conversations.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))); },
+    async customerConversations(customerId) { return structuredClone([...conversations.values()].filter((row)=>row.customerId===customerId).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt))); },
     async getThreshold() { return threshold; },
     async setThreshold(value) { threshold = value; },
     async createLearnedKnowledge(entry) { learnedKnowledge.set(entry.id, structuredClone(entry)); },
@@ -142,7 +143,7 @@ function sqlRepository(query) {
     },
     async products(search = '') {
       return (await query(`SELECT * FROM products WHERE position(lower($1) in lower(id || ' ' || name || ' ' || description)) > 0
-        ORDER BY id LIMIT 20`, [search])).rows;
+        ORDER BY id LIMIT 200`, [search])).rows;
     },
     async product(id) { return (await query('SELECT * FROM products WHERE id = $1', [id])).rows[0]; },
     async tickets(customerId) {
@@ -192,6 +193,19 @@ export function createPostgresSupportStore(connectionString) {
       return (await pool.query('SELECT state FROM support_conversations ORDER BY updated_at DESC LIMIT 200')).rows.map((row) => row.state);
     },
     async getThreshold() { return (await pool.query('SELECT confidence_threshold FROM support_settings WHERE id = 1')).rows[0].confidence_threshold; },
+    async customers() {
+      return (await pool.query(`SELECT c.id,c.name,c.email,count(DISTINCT o.id)::int AS orders_count,
+        count(DISTINCT s.id)::int AS requests_count FROM customers c LEFT JOIN orders o ON o.customer_id=c.id
+        LEFT JOIN support_conversations s ON s.customer_id=c.id GROUP BY c.id ORDER BY c.name LIMIT 200`)).rows;
+    },
+    async customerConversations(customerId) {
+      return (await pool.query('SELECT state FROM support_conversations WHERE customer_id=$1 ORDER BY updated_at DESC LIMIT 100',[customerId])).rows.map((row)=>row.state);
+    },
+    async saveProduct({id,name,description,price_cents,stock,image_url}) {
+      return (await pool.query(`INSERT INTO products (id,name,description,price_cents,stock,image_url) VALUES ($1,$2,$3,$4,$5,$6)
+        ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name,description=EXCLUDED.description,price_cents=EXCLUDED.price_cents,stock=EXCLUDED.stock,image_url=EXCLUDED.image_url RETURNING *`,
+      [id,name,description,price_cents,stock,image_url])).rows[0];
+    },
     async setThreshold(value) { await pool.query('UPDATE support_settings SET confidence_threshold = $1 WHERE id = 1', [value]); },
     async createLearnedKnowledge(entry) {
       await pool.query(`INSERT INTO learned_knowledge

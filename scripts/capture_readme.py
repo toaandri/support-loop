@@ -61,7 +61,7 @@ def run(media):
     MEDIA.mkdir(parents=True, exist_ok=True)
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     env = {**os.environ, 'PORT': str(BACKEND_PORT), 'AGENT_MODE': 'demo', 'STORAGE_MODE': 'memory',
-           'HOST': '127.0.0.1', 'DEMO_MODE': 'true', 'CUSTOMER_API_KEY': '', 'SUPPORT_ADMIN_KEY': '', 'VITE_API_BASE_URL': '', 'OPENAI_API_KEY': ''}
+           'HOST': '127.0.0.1', 'DEMO_MODE': 'true', 'AUTH_MODE': 'keys', 'CUSTOMER_API_KEY': '', 'SUPPORT_ADMIN_KEY': '', 'VITE_API_BASE_URL': '', 'OPENAI_API_KEY': ''}
     node = shutil.which('node')
     if not node:
         raise RuntimeError('Node.js is required.')

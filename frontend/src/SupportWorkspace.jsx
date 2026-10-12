@@ -6,7 +6,7 @@ import Dashboard from './Dashboard.jsx';
 
 const knowledgeStatusLabels = { new: 'Nouvelle', review: 'En révision', approved: 'Approuvée', rejected: 'Rejetée', active: 'Active' };
 
-function KnowledgeReview({ apiKey, onUnauthorized }) {
+function KnowledgeReview({ apiKey, onUnauthorized, structured = false }) {
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState('');
@@ -39,6 +39,7 @@ function KnowledgeReview({ apiKey, onUnauthorized }) {
       let updated;
       if (action === 'approve') updated = await request(`/knowledge/${selected.id}/approve`, { method: 'POST' });
       else if (action === 'reject') updated = await request(`/knowledge/${selected.id}/reject`, { method: 'POST' });
+      else if (action === 'revoke') updated = await request(`/knowledge/${selected.id}/revoke`, { method: 'POST' });
       else if (action === 'review') updated = await request(`/knowledge/${selected.id}/review`, { method: 'POST' });
       else if (action === 'save') {
         const patch = {};
@@ -104,6 +105,7 @@ function KnowledgeReview({ apiKey, onUnauthorized }) {
                   {knowledgeStatusLabels[selected.status] || selected.status}
                 </span>
                 {selected.status === 'new' ? <button className="secondary" disabled={busy || editing} onClick={() => act('review')}><Eye size={16} />Réviser</button> : null}
+                {selected.status === 'active' ? <button className="secondary" disabled={busy} onClick={()=>act('revoke')}><X size={16}/>Retirer de l’assistant</button> : null}
                 {['new', 'review', 'approved'].includes(selected.status) ? <>
                   <button disabled={busy || editing} onClick={() => act('approve')}><Check size={16} />{selected.status === 'approved' ? 'Réessayer l’indexation' : 'Approuver'}</button>
                   {selected.status !== 'approved' ? <><button className="secondary" disabled={busy || editing} onClick={() => act('reject')}><X size={16} />Rejeter</button>
@@ -130,10 +132,10 @@ function KnowledgeReview({ apiKey, onUnauthorized }) {
                 </div>
                 <div className="knowledge-section">
                   <h3>Règle extraite</h3>
-                  {editing
+                  {editing && structured ? <div className="admin-edit-form">{[['intent','Sujet'],['condition','Quand appliquer cette règle'],['resolution','Réponse générale'],['notes','Précisions (facultatif)']].map(([field,label])=><label key={field}>{label}<textarea aria-label={label} rows={field==='resolution'?4:2} maxLength={2000} value={(editRule?JSON.parse(editRule):{})[field]||''} onChange={(event)=>setEditRule(JSON.stringify({...editRule?JSON.parse(editRule):{},[field]:event.target.value||null}))}/></label>)}<p className="muted">Conservez uniquement les informations applicables à tous les clients.</p></div> : editing
                     ? <textarea aria-label="Règle JSON" rows={8} value={editRule}
                         onChange={(e) => setEditRule(e.target.value)} style={{ width: '100%', fontFamily: 'monospace', fontSize: '0.8rem' }} />
-                    : selected.extracted_rule
+                    : selected.extracted_rule && structured ? <div className="rule-fields">{[['intent','Sujet'],['condition','Condition'],['resolution','Réponse générale'],['notes','Précisions']].map(([field,label])=>selected.extracted_rule[field]&&<div key={field}><strong>{label}</strong><p className="knowledge-text">{selected.extracted_rule[field]}</p></div>)}</div> : selected.extracted_rule
                       ? <pre className="knowledge-rule">{JSON.stringify(selected.extracted_rule, null, 2)}</pre>
                       : <p className="muted">Aucune règle extraite.</p>}
                 </div>
@@ -151,10 +153,10 @@ function KnowledgeReview({ apiKey, onUnauthorized }) {
   );
 }
 
-export default function SupportWorkspace({ demoMode, loading, tab = 'dashboard', onTabChange }) {
+export default function SupportWorkspace({ demoMode, sessionUser, onUnauthorized, loading, tab = 'dashboard', onTabChange }) {
   const [key, setKey] = useState('');
   const [keyDraft, setKeyDraft] = useState('');
-  const [connected, setConnected] = useState(demoMode);
+  const [connected, setConnected] = useState(demoMode || sessionUser?.role==='admin');
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState('');
   const [detail, setDetail] = useState(null);
@@ -177,7 +179,7 @@ export default function SupportWorkspace({ demoMode, loading, tab = 'dashboard',
         const data = await api('/support/conversations', { support: true, key });
         if (active) { setRows(data.conversations); setError(''); }
       } catch (err) {
-        if (active) { setError(err.message); if (err.status === 401) setConnected(false); }
+        if (active) { setError(err.message); if (err.status === 401) {setConnected(false);onUnauthorized?.();} }
       }
     }
     refresh();
@@ -229,16 +231,16 @@ export default function SupportWorkspace({ demoMode, loading, tab = 'dashboard',
 
   return (
     <section style={{ minHeight: 560 }}>
-      {!demoMode ? <div className="support-session"><span><ShieldCheck size={14} />Session conseiller</span>
+      {!demoMode && !sessionUser ? <div className="support-session"><span><ShieldCheck size={14} />Session conseiller</span>
         <button className="icon-button secondary" style={{ marginLeft: 'auto' }} title="Déconnexion" aria-label="Déconnexion" onClick={() => {
           setConnected(false); setKey(''); setKeyDraft(''); setRows([]); setDetail(null);
         }}><LogOut size={17} /></button>
       </div> : null}
 
-      {tab === 'dashboard' ? <Dashboard apiKey={key} onUnauthorized={(message) => { setError(message); setConnected(false); }} onKnowledge={() => setTab('knowledge')} onSelect={(id) => {
+      {tab === 'dashboard' ? <Dashboard apiKey={key} onUnauthorized={(message) => { setError(message); setConnected(false); onUnauthorized?.(); }} onKnowledge={() => setTab('knowledge')} onSelect={(id) => {
         setSelected(id); setDetail(null); setReply(''); setFilter('all'); setTab('conversations');
       }} /> : null}
-      {tab === 'knowledge' ? <KnowledgeReview apiKey={key} onUnauthorized={(message) => { setError(message); setConnected(false); }} /> : null}
+      {tab === 'knowledge' ? <KnowledgeReview structured={!!sessionUser} apiKey={key} onUnauthorized={(message) => { setError(message); setConnected(false); onUnauthorized?.(); }} /> : null}
 
       {tab === 'conversations' ? (
         <section className="support-workspace">

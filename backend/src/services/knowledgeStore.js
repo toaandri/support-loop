@@ -22,18 +22,18 @@ export function createKnowledgeStore(connectionString) {
       const result = await pool.query('SELECT * FROM knowledge_documents WHERE source = $1', [source]);
       return result.rows[0];
     },
-    async replaceDocument({ source, hash, model, chunks, embeddings }) {
+    async replaceDocument({ source, hash, model, chunks, embeddings, content }) {
       if (!chunks.length || chunks.length !== embeddings.length) throw new Error('Invalid document chunks.');
-      const vectors = embeddings.map(vectorLiteral);
+      const vectors = embeddings.map((values) => values === null ? null : vectorLiteral(values));
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
         const result = await client.query(`
-          INSERT INTO knowledge_documents (id, source, content_hash, embedding_model)
-          VALUES ($1, $2, $3, $4)
+          INSERT INTO knowledge_documents (id, source, content_hash, embedding_model, content)
+          VALUES ($1, $2, $3, $4, $5)
           ON CONFLICT (source) DO UPDATE SET content_hash = EXCLUDED.content_hash,
-            embedding_model = EXCLUDED.embedding_model, indexed_at = now()
-          RETURNING id`, [randomUUID(), source, hash, model]);
+            embedding_model = EXCLUDED.embedding_model, content = EXCLUDED.content, indexed_at = now()
+          RETURNING id`, [randomUUID(), source, hash, model, content ?? chunks.join('\n')]);
         const documentId = result.rows[0].id;
         await client.query('DELETE FROM knowledge_chunks WHERE document_id = $1', [documentId]);
         for (let index = 0; index < chunks.length; index += 1) {
@@ -56,6 +56,30 @@ export function createKnowledgeStore(connectionString) {
         ORDER BY c.embedding <=> $1::vector LIMIT $4`,
       [vectorLiteral(embedding), model, minSimilarity, limit]);
       return result.rows;
+    },
+    async searchText(query, { limit = 4 } = {}) {
+      const result = await pool.query(`SELECT c.id,d.source,c.chunk_index AS "chunkIndex",c.content,
+        ts_rank_cd(to_tsvector('french',c.content),plainto_tsquery('french',$1)) AS similarity
+        FROM knowledge_chunks c JOIN knowledge_documents d ON d.id=c.document_id
+        WHERE d.embedding_model='text:v1' AND to_tsvector('french',c.content) @@ websearch_to_tsquery('french',$1)
+        ORDER BY similarity DESC,d.indexed_at DESC LIMIT $2`, [query,limit]);
+      if (result.rows.length) return result.rows;
+      const words=(query.normalize('NFD').replace(/[\u0300-\u036f]/g,'').match(/[a-zA-Z0-9_-]{4,}/g)||[])
+        .filter((word)=>!['comment','quelle','quels','quelles','votre','notre','avec','pour','dans','fonctionne','peux','vous','sont'].includes(word.toLowerCase())).slice(0,12);
+      if(!words.length) return [];
+      return (await pool.query(`SELECT c.id,d.source,c.chunk_index AS "chunkIndex",c.content,
+        ts_rank_cd(to_tsvector('french',c.content),to_tsquery('french',$1)) AS similarity
+        FROM knowledge_chunks c JOIN knowledge_documents d ON d.id=c.document_id
+        WHERE d.embedding_model='text:v1' AND to_tsvector('french',c.content) @@ to_tsquery('french',$1)
+        ORDER BY similarity DESC,d.indexed_at DESC LIMIT $2`, [words.join(' | '),limit])).rows;
+    },
+    async deleteDocument(source) {
+      return (await pool.query('DELETE FROM knowledge_documents WHERE source=$1 RETURNING id',[source])).rowCount;
+    },
+    async documents() {
+      return (await pool.query(`SELECT d.id,d.source,d.indexed_at,COALESCE(d.content,string_agg(c.content,E'\n' ORDER BY c.chunk_index)) AS content
+        FROM knowledge_documents d JOIN knowledge_chunks c ON c.document_id=d.id
+        GROUP BY d.id ORDER BY d.indexed_at DESC`)).rows;
     },
     async close() { await pool.end(); }
   };

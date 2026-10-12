@@ -1,78 +1,88 @@
 # Développement et exploitation
 
-## Démarrage local
+## Site local avec comptes
 
-Node.js 22.16+ et npm. Depuis la racine :
+Copier `.env.example` vers `.env`, définir ADMIN_EMAIL, ADMIN_PASSWORD (12–128
+caractères) et GROQ_API_KEY. Puis :
 
 ```bash
 npm run setup
+docker compose up -d postgres
 npm run dev
 ```
 
-Le lanceur démarre Express (PORT, 3000 par défaut) et Vite (FRONTEND_PORT, 5173).
-Le frontend et le backend lisent
-le `.env` racine s’il existe. Sans configuration, la démo utilise la mémoire et
-ne contacte pas OpenAI. Les données disparaissent au redémarrage du backend.
+Vite : FRONTEND_PORT, 5173 par défaut ; API : PORT, 3000 ; PostgreSQL : 55432.
+Le frontend utilise `/api` de même origine. `/admin` ouvre l’espace équipe.
+Le serveur applique les schémas idempotents au démarrage et crée l’administrateur
+initial. Une base neuve reste vide, sans catalogue ni commandes fictives.
 
-Dans un second terminal, `npm run demo:seed` crée huit scénarios de démonstration
-par l’API. La commande conserve les conversations portant déjà les mêmes IDs
-et refuse de fonctionner hors démo. Les indicateurs sont calculés à partir de
-ces événements réels, sans inventer d’historique sur les jours précédents.
+Lancer la stack compilée avec `docker compose up -d --build`. Nginx sert React
+et relaie `/api`, y compris pour `/admin`. Les volumes conservent les données.
+`docker compose stop` arrête les services sans supprimer les volumes.
 
-## Docker
+## Configuration
+
+| Variable | Usage |
+|---|---|
+| AUTH_MODE=session | Comptes clients et rôle administrateur |
+| AGENT_MODE=groq | Génération et extraction par Groq |
+| STORAGE_MODE=postgres | Persistance en lancement Node |
+| DATABASE_URL | URL PostgreSQL locale ; Compose utilise son URL interne |
+| BRAND_NAME | Nom affiché sur le portail |
+| ADMIN_EMAIL / ADMIN_PASSWORD / ADMIN_NAME | Création du premier compte administrateur |
+| GROQ_API_KEY / GROQ_MODEL | Clé privée et modèle compatible JSON strict |
+| COOKIE_SECURE | false en HTTP local, true en HTTPS |
+| POSTGRES_PASSWORD | Mot de passe du conteneur DB, à adapter avec DATABASE_URL |
+| CUSTOMER_API_KEY / SUPPORT_ADMIN_KEY | Accès de service facultatifs pour n8n |
+| SUPPORT_CUSTOMER_ID | Identité fixe d’un appel via clé de service client |
+| KNOWLEDGE_DIRECTORY | Dossier local Markdown/texte à ingérer |
+| DOCKER_KNOWLEDGE_DIRECTORY | Chemin du dossier dans le conteneur ; /knowledge/local par défaut |
+
+Une clé Groq absente n’empêche pas le démarrage. Les demandes passent à un conseiller.
+Après ajout de la clé, redémarrer le backend puis cliquer **Réglages → Tester la
+connexion**. Ce test vérifie l’accès aux modèles. Envoyer ensuite une vraie question
+sur un article publié pour vérifier une génération avec citation. Les quotas et
+l’accès au modèle dépendent du compte Groq.
+
+Changer BRAND_NAME ne crée aucune politique ou identité commerciale. Publier vos
+articles et renseigner le catalogue dans l’administration. Les commandes se lisent
+dans PostgreSQL ; leur alimentation depuis votre source métier reste à connecter.
+
+## Mot de passe administrateur
+
+Les valeurs initiales sont dans `.env`, jamais dans Git ou le build frontend.
+Un redémarrage n’écrase pas un administrateur existant. Pour réinitialiser :
+
+1. Modifier ADMIN_PASSWORD dans `.env` en conservant ADMIN_EMAIL.
+2. Exécuter `npm run admin:reset --prefix backend`.
+3. Se reconnecter. Les anciennes sessions de cet administrateur sont invalidées.
+
+En Docker : `docker compose up -d backend` pour appliquer les variables, puis
+`docker compose exec backend node scripts/resetAdmin.js`. Cette procédure ne
+transforme pas un compte client en administrateur.
+
+## Documents et migrations
+
+La publication depuis l’interface est immédiatement persistée et indexée, sans
+API d’embeddings en mode Groq. Les articles peuvent être édités ou retirés.
+
+Pour importer vos fichiers `.md` / `.txt`, créer `knowledge/local/`, y placer vos
+documents, puis `npm run knowledge:ingest --prefix backend`. Ce dossier est privé
+et ignoré par Git. Les fichiers importés alimentent l’IA ; seuls les articles
+publiés depuis l’interface apparaissent dans le centre d’aide public.
+
+L’ingestion remplace les documents modifiés dans une transaction. Le dossier de
+démonstration n’est pas ingéré automatiquement en mode Groq.
+
+`npm run db:init --prefix backend` applique seulement les schémas. Les données
+fictives sont optionnelles : ajouter `-- --seed` dans une base de démonstration.
+Les schémas sont appliqués aussi au démarrage du serveur.
+
+## Tests et médias
+
+Créer une base de test séparée :
 
 ```bash
-docker compose up -d --build
-docker compose ps
-docker compose logs --tail=100 backend
-```
-
-Frontend Nginx : 5173 ; API : 3000 ; PostgreSQL : 55432. Les ports sont liés à
-localhost. Le stockage Compose est toujours PostgreSQL ; `STORAGE_MODE` concerne
-le lancement Node local. Images construites avec `npm ci`, frontend compilé,
-backend exécuté sans dépendances de développement et sous l’utilisateur `node`.
-Des healthchecks vérifient les trois services.
-
-Les scripts SQL s’exécutent à la création du volume. Pour une base existante :
-
-```bash
-docker compose exec backend node scripts/initDatabase.js
-```
-
-Les schémas sont idempotents, les données de démonstration ne sont pas écrasées.
-`docker compose stop` arrête les services en conservant les données. Les volumes
-contiennent les conversations et l’espace n8n ; les conserver lors des mises à jour.
-
-## RAG
-
-Copier `.env.example` vers `.env`, puis définir `AGENT_MODE=rag`,
-`STORAGE_MODE=postgres`, `DATABASE_URL` et `OPENAI_API_KEY`.
-
-```bash
-docker compose up -d postgres
-npm run db:init --prefix backend
-npm run knowledge:ingest --prefix backend
-npm run dev
-```
-
-Avec la stack complète :
-
-```bash
-docker compose up -d --build
-docker compose exec backend node scripts/ingestKnowledge.js /knowledge/demo
-```
-
-Le `.env` local utilise `localhost:55432` ; Compose configure l’URL interne.
-`KNOWLEDGE_DIRECTORY` personnalise le répertoire local utilisé par l’API
-d’ingestion ; Compose monte `./knowledge` dans `/knowledge`.
-Les embeddings et les réponses RAG effectuent des appels payants.
-
-## Tests PostgreSQL
-
-Créer une base dédiée, jamais une base avec des données réelles :
-
-```bash
-docker compose up -d postgres
 docker compose exec postgres psql -U supportloop -d supportloop -c "CREATE DATABASE supportloop_test;"
 ```
 
@@ -80,37 +90,28 @@ PowerShell :
 
 ```powershell
 $env:TEST_DATABASE_URL='postgresql://supportloop:supportloop@localhost:55432/supportloop_test'
-npm test
-```
-
-Linux/macOS :
-
-```bash
-TEST_DATABASE_URL=postgresql://supportloop:supportloop@localhost:55432/supportloop_test npm test
-```
-
-Les tests appliquent leurs schémas et nettoient leurs ressources. Sans cette
-variable, les tests d’intégration sont explicitement ignorés. Les tests OpenAI
-utilisent des doublures, jamais une vraie clé.
-
-## Tests navigateur et médias
-
-Python 3.10+, Playwright, Pillow :
-
-```bash
+npm run check
+npm run evaluate
 python -m pip install -r scripts/media-requirements.txt
 python -m playwright install chromium
+npm run test:portal
 npm run test:e2e
 npm run docs:media
 ```
 
-Sous Linux, utiliser `python -m playwright install --with-deps chromium` si les
-dépendances système manquent. Le script démarre des serveurs isolés sur 3101 et
-5180, en mémoire, puis les arrête. Il vérifie le parcours humain/apprentissage,
-le catalogue et les layouts à 390, 768 et 1440 px. Les captures et GIFs se trouvent
-dans `docs/media/`. Aucun service externe n’est contacté par la démonstration.
-Variables optionnelles : `CAPTURE_BACKEND_PORT` et `CAPTURE_FRONTEND_PORT`.
-Les logs de test sont dans `.superpowers/browser-check/`, hors Git.
+Sur Linux/macOS, exporter TEST_DATABASE_URL avant les mêmes commandes. Pour
+Chromium sur Linux, utiliser `python -m playwright install --with-deps chromium`.
+Sans TEST_DATABASE_URL, les intégrations backend sont explicitement ignorées.
+
+Le test portail crée ou réutilise une base **jetable** nommée `supportloop_portal_test`
+et en nettoie les tables. Il démarre ses serveurs sur 3102/5181 et les arrête après
+le test. Ne jamais utiliser cette base pour des données à conserver. Variables
+optionnelles : PORTAL_BACKEND_PORT, PORTAL_FRONTEND_PORT. Les logs privés sont dans
+`.superpowers/portal-check/`. Aucun appel Groq réel n’est effectué.
+
+La régression historique utilise la mémoire sur 3101/5180. `docs:media:demo`
+reproduit ses anciens médias ; `docs:media` produit le portail réel, deux GIFs et
+les captures desktop/mobile dans `docs/media/`.
 
 ## Sauvegardes
 
@@ -118,10 +119,12 @@ Les logs de test sont dans `.superpowers/browser-check/`, hors Git.
 python scripts/db_backup.py
 ```
 
-Le dump PostgreSQL binaire est enregistré dans `backups/`, hors Git. La commande
-évite la redirection binaire incorrecte de PowerShell 5. Planifier cette commande
-avec le Planificateur Windows ou cron, puis copier les dumps vers un stockage
-privé indépendant. Tester régulièrement une restauration dans une base dédiée :
+Ce script sauvegarde la base du service Compose `postgres`, dans `backups/`, hors
+Git. Le nom de base vient de DATABASE_URL dans l’environnement ou `.env` ; utiliser
+`--database supportloop` pour cibler explicitement la base de la stack complète,
+et `--project NOM` pour un projet Compose distinct. Une base hébergée ailleurs
+nécessite pg_dump avec son URL. Conserver une copie privée indépendante et
+vérifier régulièrement une restauration dans une base séparée :
 
 ```bash
 docker compose cp backups/nom-du-dump.dump postgres:/tmp/supportloop.dump
@@ -129,32 +132,22 @@ docker compose exec postgres createdb -U supportloop supportloop_restore_test
 docker compose exec postgres pg_restore -U supportloop -d supportloop_restore_test /tmp/supportloop.dump
 ```
 
-Vérifier les commandes, conversations, tickets, règles et chunks dans cette base.
-Cette procédure n’écrase pas la base en service. La configuration n8n est dans un
-volume séparé ; exporter ses workflows et sauvegarder sa clé de chiffrement et ses
-credentials indépendamment, selon la procédure de votre instance.
-
-## Accès protégés
-
-Définir `DEMO_MODE=false` et deux clés différentes. Les clés sont entrées dans
-l’interface, restent en mémoire et ne sont pas incluses dans le build. Ajouter
-HTTPS et une authentification par utilisateur avant une exposition à des clients
-réels. La version fournie ne représente qu’un client et un conseiller configurés.
-Pour déployer sur Internet, définir volontairement les interfaces/ports exposés.
+Contrôler les comptes, dossiers, tickets, règles et chunks restaurés. Les credentials
+et la clé de chiffrement n8n nécessitent une sauvegarde indépendante.
 
 ## Diagnostic
 
 | Symptôme | Vérification |
 |---|---|
-| Port occupé | Arrêter le processus concerné ou changer PORT/FRONTEND_PORT ; Vite ne choisit pas silencieusement un autre port |
-| Serveur hors ligne | Consulter le terminal backend ou `docker compose logs backend` |
-| Clé incorrecte | Vérifier le rôle, les en-têtes et les deux clés distinctes |
-| Tables absentes | Exécuter `db:init` avant un backend PostgreSQL |
-| Aucune source RAG | Ingérer les documents et vérifier le modèle / seuil |
-| Connaissance `approved` | Réessayer l’indexation après correction de la connexion OpenAI/DB |
-| Résolution sans proposition | Une réponse humaine est nécessaire ; utiliser `/learn` pour relancer |
-| Webhook n8n refusé | Configurer le credential Header Auth et les variables côté n8n |
+| Port occupé | Changer PORT / FRONTEND_PORT ; ne pas arrêter un autre projet |
+| Accès admin refusé | Vérifier ADMIN_EMAIL ; utiliser la procédure de réinitialisation |
+| Modèle indisponible | Réglages → Tester la connexion, clé, modèle, quotas Groq |
+| Toute demande est transférée | Vérifier la clé et publier des sources correspondant aux questions |
+| Résolution sans règle | La correction est conservée ; rédiger la règle ou relancer /learn |
+| Connaissance sans activation | Vérifier PostgreSQL puis relancer l’indexation |
+| Articles absents du centre d’aide | Publier via l’interface ; les fichiers importés restent des sources IA |
+| Webhook n8n refusé | Credentials webhook et clés de service explicitement configurés |
 
-Les logs HTTP sont des lignes JSON ; ils n’incluent pas les clés ni le corps des
-messages. Le healthcheck vérifie le service HTTP ; la supervision de la disponibilité
-des fournisseurs et la collecte centrale des métriques restent à configurer.
+Le healthcheck confirme le service HTTP, pas la disponibilité de Groq. Les logs
+JSON ne contiennent pas les secrets ou corps des messages. Ajouter une supervision
+et une politique de conservation adaptées avant une exposition publique.

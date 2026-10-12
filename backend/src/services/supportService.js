@@ -3,7 +3,8 @@ import { appendMessage, httpError } from './supportStore.js';
 import { createToolExecutor } from './agentTools.js';
 import { createSupportAgent, escalationReason } from './supportAgent.js';
 import { logger } from '../middleware/logger.js';
-import { ingestKnowledge } from './documentIngestion.js';
+import { ingestKnowledge, chunkText } from './documentIngestion.js';
+import { createHash } from 'node:crypto';
 
 export function createSupportService({ store, provider, knowledgeStore, knowledgeDirectory, minSimilarity, agent = createSupportAgent(provider) }) {
   const pendingKnowledge = new Map();
@@ -58,13 +59,13 @@ export function createSupportService({ store, provider, knowledgeStore, knowledg
         return { conversationId, status: state.status, message: assistantMessage, history: state.messages, escalation: state.escalation };
       });
     },
-    async action(id, action, { agentName, content }) {
+    async action(id, action, { agentName, actorId, content }) {
       const result = await store.withConversation(id, null, async (state) => {
         if (action === 'claim') {
           if (state.status !== 'waiting') throw httpError(409, 'Conversation is not waiting.');
-          state.status = 'human'; state.assignedTo = agentName;
+          state.status = 'human'; state.assignedTo = actorId || agentName;
         } else {
-          if (state.status !== 'human' || state.assignedTo !== agentName) throw httpError(409, 'Claim this conversation first.');
+          if (state.status !== 'human' || state.assignedTo !== (actorId || agentName)) throw httpError(409, 'Claim this conversation first.');
           if (action === 'reply') appendMessage(state, 'human', content, { agentName, source: 'human' });
           else if (action === 'resolve') {
             state.status = 'resolved';
@@ -124,6 +125,7 @@ export function createSupportService({ store, provider, knowledgeStore, knowledg
       return knowledgeAction(id, async () => {
         const entry = await store.getLearnedKnowledge(id);
         if (!['new', 'review', 'approved'].includes(entry.status)) throw httpError(409, 'Only pending entries can be approved.');
+        if (providerRef?.name === 'groq' && !entry.extracted_rule) throw httpError(409, 'Rédigez une règle générale avant de publier cette connaissance.');
         const now = new Date().toISOString();
         await store.updateLearnedKnowledge(id, { status: 'approved', reviewed_at: now, reviewed_by: reviewedBy || null });
         // Indexation vectorielle si le provider et le knowledgeStore sont disponibles
@@ -133,12 +135,12 @@ export function createSupportService({ store, provider, knowledgeStore, knowledg
           const text = rule
             ? `# ${rule.intent}\n\nCondition: ${rule.condition}\n\nResolution: ${rule.resolution}${rule.notes ? `\n\nNotes: ${rule.notes}` : ''}\n\nHuman answer: ${entry.human_answer}`
             : `Question: ${entry.question}\n\nAnswer: ${entry.human_answer}`;
-          const [embedding] = await providerRef.embed([text]);
-          const { createHash } = await import('node:crypto');
-          const hash = createHash('sha256').update(`chunk-v1\n${text}`).digest('hex');
+          const indexedText = providerRef.name === 'groq' ? `Intent: ${rule.intent}\nCondition: ${rule.condition}\nResolution: ${rule.resolution}${rule.notes ? `\nNotes: ${rule.notes}` : ''}` : text;
+          const embedding = providerRef.embed ? (await providerRef.embed([indexedText]))[0] : null;
+          const hash = createHash('sha256').update(`chunk-v1\n${indexedText}`).digest('hex');
           await knowledgeStoreRef.replaceDocument({
             source, hash, model: providerRef.embeddingModel,
-            chunks: [text], embeddings: [embedding]
+            chunks: [indexedText], embeddings: [embedding]
           });
           await store.updateLearnedKnowledge(id, { status: 'active' });
         } else if (!providerRef) await store.updateLearnedKnowledge(id, { status: 'active' });
@@ -176,6 +178,38 @@ export function createSupportService({ store, provider, knowledgeStore, knowledg
       if (state.status !== 'resolved') throw httpError(409, 'Resolve the conversation first.');
       await this._extractAndStore(id, state);
       return { knowledge: (await store.listLearnedKnowledge()).filter((entry) => entry.conversation_id === id) };
+    },
+
+    async documents() { return knowledgeStore ? knowledgeStore.documents() : []; },
+    async publishDocument({title,content,source:existingSource}) {
+      if (!knowledgeStore) throw httpError(400,'La publication nécessite un stockage persistant.');
+      if(existingSource && !await knowledgeStore.getDocument(existingSource)) throw httpError(404,'Article introuvable.');
+      const source=existingSource || `manual/${randomUUID()}.md`;
+      const text=`# ${title}\n\n${content}`;
+      const chunks=chunkText(text);
+      const embeddings=provider?.embed ? await provider.embed(chunks) : chunks.map(()=>null);
+      await knowledgeStore.replaceDocument({source,hash:createHash('sha256').update(text).digest('hex'),
+        model:provider?.embeddingModel || 'text:v1',content:text,chunks,embeddings});
+      return {source,title,content};
+    },
+    async removeDocument(source) {
+      if(!knowledgeStore || !await knowledgeStore.deleteDocument(source)) throw httpError(404,'Article introuvable.');
+      return {removed:true};
+    },
+    async revokeKnowledge(id,{reviewedBy}={}) {
+      return knowledgeAction(id,async()=>{
+        const entry=await store.getLearnedKnowledge(id);
+        if(entry.status!=='active') throw httpError(409,'Seule une connaissance active peut être retirée.');
+        if(knowledgeStore) await knowledgeStore.deleteDocument(`learned/${id}.md`);
+        await store.updateLearnedKnowledge(id,{status:'rejected',reviewed_at:new Date().toISOString(),reviewed_by:reviewedBy||null});
+        return store.getLearnedKnowledge(id);
+      });
+    },
+    async checkAI() {
+      if(!provider?.check) return {provider:provider?'openai':'demo',connected:!!provider};
+      if(provider.configured===false) throw httpError(409,'Ajoutez votre clé Groq dans GROQ_API_KEY sur le serveur, puis redémarrez le backend.');
+      try { return await provider.check(); }
+      catch { throw httpError(503,'Connexion IA indisponible. Vérifiez la clé, le modèle et les quotas du fournisseur.'); }
     },
 
     async editKnowledge(id, { extracted_rule, human_answer }) {

@@ -1,57 +1,55 @@
 # État du projet
 
-État vérifié le 12 octobre 2026. Le fichier personnel `choses a faire.txt` est
-historique ; ce document décrit la version du dépôt.
+Version vérifiée le 12 octobre 2026.
 
 | Périmètre | État |
 |---|---|
-| V1 — Chat et API | Fonctionnel, démo sans clé et agent OpenAI |
-| V2 — RAG | Ingestion `.md` / `.txt`, chunking, pgvector, sources citées |
-| V3 — Données métier | Clients, catalogue, commandes, tickets, historique |
-| V4 — Outils | Six outils autorisés, contrôle des arguments et des commandes |
-| V5 — Transfert humain | File, contexte, prise en charge, réponse, résolution, reprise IA |
-| V6 — Learning loop | Proposition, révision, édition, approbation, rejet, réutilisation |
-| V7 — Tableau de bord | Indicateurs réels, activité quotidienne, motifs de transfert |
-| V8 — Exploitation | Images Docker, proxy Nginx, limites, logs, tests, CI, sauvegarde |
-| V9 — Multicanal (extension) | Webhooks n8n disponibles ; comptes email/WhatsApp non connectés |
-| V10 — Évaluation (extension) | 15 cas déterministes et démonstration avant/après apprentissage |
+| Portail public | Accueil, recherche d’articles et catalogue configurables |
+| Comptes clients | Inscription, connexion, sessions persistantes, déconnexion |
+| Espace personnel | Demandes, historique, réponses et commandes propres au compte |
+| Administration | Rôle protégé, vue d’ensemble, file, clients et réglages |
+| Contenu | Création, modification et retrait des articles ; catalogue modifiable |
+| IA Groq | Appels structurés, faits vérifiés, gestion des erreurs et quotas |
+| Relais humain | Ticket, prise en charge, réponse, résolution et reprise IA |
+| Apprentissage | Extraction proposée, revue, édition, validation, recherche et retrait |
+| Persistance | PostgreSQL : comptes, sessions, dossiers, tickets et connaissances |
+| Exploitation | Docker, Nginx, sauvegarde, CI et médias reproductibles |
 
-## Ce qui a été terminé
+## Vérifications
 
-L’interface a été refondue et vérifiée sur desktop, tablette et mobile. Le mode
-démo conserve maintenant les réponses humaines, permet leur validation et les
-retrouve lexicalement. Le RAG utilise l’index vectoriel et reste un mode distinct.
-Une indexation en échec reste `approved` et peut être relancée. Les réponses
-validées ne peuvent pas être modifiées silencieusement. Les transferts historiques
-restent comptés après résolution. L’extraction se fait après la sauvegarde de la
-résolution, avec conservation de la réponse même si le fournisseur est indisponible.
+66 tests backend réussis, dont les intégrations PostgreSQL, comptes et apprentissage
+Groq. Build React réussi. Le navigateur vérifie l’inscription, la persistance des
+sessions, les droits, les articles publiés et modifiés, le catalogue, les commandes,
+les échanges humains, la publication des connaissances et les pages à 390/1440 px.
+La démo historique conserve ses tests de régression et son évaluation déterministe.
+La stack Docker compilée, le proxy Nginx, la persistance après redémarrage et la
+réinitialisation du mot de passe administrateur ont aussi été vérifiés.
 
-## Vérifications effectuées
+Les nouvelles captures et GIFs sont produits avec des données de test isolées.
+Aucune fausse génération IA n’est affichée dans le portail Groq. L’inférence externe
+est simulée dans les tests automatisés ; la validation sur le vrai compte Groq
+reste à effectuer après ajout de la clé personnelle.
 
-- 56 tests backend réussis, dont les intégrations PostgreSQL/pgvector.
-- Build React de production réussi et audits npm sans vulnérabilité signalée.
-- 15 scénarios déterministes et parcours avant/après validation réussis.
-- Parcours Chromium : chat, transfert, réponse, résolution, reprise IA, révision,
-  édition, activation, réutilisation, sources, catalogue et accès protégés.
-- Interface vérifiée à 390, 768 et 1440 px ; deux GIFs générés depuis ces parcours.
-- Images Docker construites, trois services sains, proxy Nginx et chat compilé
-  vérifiés ; conversations et connaissances conservées après redémarrage.
-- Sauvegarde PostgreSQL restaurée et contrôlée dans une base distincte.
+## Périmètre des intégrations
 
-Le volume PostgreSQL local existant a reçu les schémas idempotents via `db:init`.
-Les workflows n8n ont été contrôlés par des tests de graphe et d’expressions ;
-les credentials et les destinations externes restent à configurer dans n8n.
+Les informations commerciales et commandes viennent de PostgreSQL. Le catalogue
+et les articles se gèrent dans l’administration ; l’import de commandes depuis
+un ERP ou une plateforme marchande nécessite son adaptateur et ses credentials.
+Les canaux email/WhatsApp, les paiements et les remboursements ne sont pas connectés.
+Les workflows n8n sont des adaptateurs facultatifs, avec des destinations à configurer.
 
-## Limites assumées
+## Limites
 
-L’application cible un projet d’étude et un support pour un client configuré côté
-serveur. Elle n’implémente pas d’identité multi-utilisateur, d’authentification SSO,
-de paiement, de remboursement automatique, ni de canal externe sans configuration.
-Le rate limiting et le verrou des actions de connaissance sont locaux au processus :
-la configuration fournie exécute une instance backend. Les agrégats du dashboard
-relisent les états et devront être remplacés par des agrégations SQL dédiées pour
-un historique très volumineux. La file PostgreSQL affiche les 200 dernières conversations.
+L’apprentissage enrichit l’index et ne réentraîne pas le modèle. La recherche par
+plein texte vise principalement le français. Une réponse sans preuve est transférée ;
+la pertinence d’une source et la confiance du modèle restent à évaluer sur vos cas réels.
 
-Le score de confiance est une estimation, pas une probabilité calibrée. Le
-benchmark démo valide les règles et le parcours ; il ne mesure pas la qualité
-d’un modèle OpenAI réel. Aucun appel OpenAI payant n’est nécessaire aux tests.
+Le serveur fourni utilise une instance backend. Les limites de débit et les verrous
+d’actions sur les connaissances sont locaux au processus. La file montre les 200
+derniers dossiers, l’historique client les 100 derniers et le catalogue 200 entrées.
+Ajouter une pagination et des agrégats SQL pour un volume supérieur.
+
+Avant une exposition publique, configurer HTTPS, COOKIE_SECURE, les sauvegardes,
+la conservation des données et la supervision. L’inscription ne vérifie pas l’adresse
+email et il n’y a pas de SSO, de MFA ni de récupération du mot de passe par email.
+L’administrateur dispose d’une procédure locale de réinitialisation documentée.

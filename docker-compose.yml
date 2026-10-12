@@ -7,9 +7,17 @@ services:
     environment:
       PORT: 3000
       HOST: 0.0.0.0
-      AGENT_MODE: ${AGENT_MODE:-demo}
+      AGENT_MODE: ${AGENT_MODE:-groq}
       STORAGE_MODE: postgres
-      DEMO_MODE: ${DEMO_MODE:-true}
+      DEMO_MODE: ${DEMO_MODE:-false}
+      AUTH_MODE: ${AUTH_MODE:-session}
+      BRAND_NAME: ${BRAND_NAME:-SupportLoop}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-20b}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_NAME: ${ADMIN_NAME:-Administrateur}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
       CUSTOMER_API_KEY: ${CUSTOMER_API_KEY:-}
       SUPPORT_ADMIN_KEY: ${SUPPORT_ADMIN_KEY:-}
       SUPPORT_CUSTOMER_ID: ${SUPPORT_CUSTOMER_ID:-customer-demo}
@@ -19,7 +27,7 @@ services:
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
       OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-gpt-4.1-mini}
       RAG_MIN_SIMILARITY: ${RAG_MIN_SIMILARITY:-0.35}
-      KNOWLEDGE_DIRECTORY: /knowledge/demo
+      KNOWLEDGE_DIRECTORY: ${DOCKER_KNOWLEDGE_DIRECTORY:-/knowledge/local}
     ports:
       - "127.0.0.1:${BACKEND_PORT:-3000}:3000"
     volumes:
@@ -41,7 +49,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/001-knowledge.sql:ro
       - ./database/support-schema.sql:/docker-entrypoint-initdb.d/002-support.sql:ro
-      - ./database/seed.sql:/docker-entrypoint-initdb.d/003-seed.sql:ro
+      - ./database/auth-schema.sql:/docker-entrypoint-initdb.d/003-auth.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U supportloop -d supportloop"]
       interval: 5s
